@@ -6,12 +6,11 @@
 # Params
 WIDTH=300
 HEIGHT=300
-FIRST_IMAGE_INDEX=1000
+FIRST_IMAGE_INDEX=30
 NUMBER_OF_IMAGES=10
 BASE_URL="https://picsum.photos"
 
 OUTPUT_FOLDER='./output_images/'
-MOCK_FOLDER_NAME="mock_images"
 PREFIX="MOCK_"
 
 # Menu
@@ -50,10 +49,6 @@ fi
 
 cd $OUTPUT_FOLDER
 
-if [ ! -d $MOCK_FOLDER_NAME ]; then
-  mkdir -p $MOCK_FOLDER_NAME;
-fi
-
 LINK=$BASE_URL/$WIDTH/$HEIGHT
 
 END_NUMBER=$((FIRST_IMAGE_INDEX+NUMBER_OF_IMAGES))
@@ -63,12 +58,11 @@ do
 	IMAGE_LINK=$LINK?image=$INDEX
 	FILENAME=$PREFIX$INDEX.png
 	wget $IMAGE_LINK -O $FILENAME
-	mv $FILENAME $MOCK_FOLDER_NAME
 done
 
 INDEX=0
-for file in "$MOCK_FOLDER_NAME"/* 
+for file in ./* 
 do
-    mv "$file" "$MOCK_FOLDER_NAME/$PREFIX$INDEX.png"
+    mv "$file" "$PREFIX$INDEX.png"
     INDEX=$((INDEX + 1))
 done
