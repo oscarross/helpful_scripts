@@ -13,8 +13,8 @@ Documentation
 |:----:|:-----------|:-----:|
 |**w**|Image width|300|
 |**a**|Image height|300|
-|**n**|Number of images to download|30|
-|**i**|ID number of first image to download|10|
+|**n**|Number of images to download|10|
+|**i**|ID number of first image to download|30|
 |**h**|Help|-|
 
 ### Examples
