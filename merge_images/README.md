@@ -1,6 +1,6 @@
 # Merge images
 
-This bash script merged all images from folder `input_images` to one image.
+This bash script merges all images from folder `input_images` to one image.
 
 ### Requirement
 `imagemagick` 
@@ -26,4 +26,5 @@ With default parameters
 With custom parameters
 
 `./merge_images.sh -c '#ffffff' -w 20 -n 2`
+
 ![custom](./examples/merged_custom.png)

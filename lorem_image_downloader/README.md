@@ -1,6 +1,6 @@
 # Lorem image downloader
 
-This bash script download images from [https://picsum.photos](https://picsum.photos) to created folder `output_images`
+This bash script downloads images from [https://picsum.photos](https://picsum.photos) to created folder `output_images`
 
 ### Requirement
 `wget` 

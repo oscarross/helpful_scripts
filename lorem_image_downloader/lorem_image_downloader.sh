@@ -29,6 +29,16 @@ OPTIONS:
 EOF
 }
 
+show_install_info() {
+cat << EOF
+Please install "wget"
+https://formulae.brew.sh/formula/wget
+
+You can install by brew
+"brew install wget"
+EOF
+}
+
 while getopts "hw:i:a:n:" opt; 
 do
     case "$opt" in
@@ -42,6 +52,11 @@ do
 done
 
 # =============================================
+
+if [[ $(command -v wget) == "" ]]; then
+    show_install_info
+    exit 1
+fi
 
 if [ ! -d $OUTPUT_FOLDER ]; then
   mkdir -p $OUTPUT_FOLDER;
@@ -66,3 +81,5 @@ do
     mv "$file" "$PREFIX$INDEX.png"
     INDEX=$((INDEX + 1))
 done
+
+exit 0

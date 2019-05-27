@@ -29,6 +29,16 @@ OPTIONS:
 EOF
 }
 
+show_install_info() {
+cat << EOF
+Please install "imagemagick"
+https://formulae.brew.sh/formula/imagemagick
+
+You can install by brew
+"brew install imagemagick"
+EOF
+}
+
 while getopts "hw:c:n:" opt; 
 do
     case "$opt" in
@@ -41,6 +51,11 @@ do
 done
 
 # =============================================
+
+if [[ $(command -v imagemagick) == "" ]]; then
+    show_install_info
+    exit 1
+fi
 
 if [ ! -d "$INPUT_FOLDER" ]; then
     echo "Input folder dosen't exists"
@@ -58,3 +73,5 @@ INPUT_FILES="./$INPUT_FOLDER/*"
 
 montage $INPUT_FILES -bordercolor $BORDER_COLOR -border $BORDER_WIDTH -tile "$NUMBER_OF_COLUMNS"x -geometry +0+0 $OUTPUT_PATH
 montage $OUTPUT_PATH -bordercolor $BORDER_COLOR -border $BORDER_WIDTH -geometry +0+0 $OUTPUT_PATH
+
+exit 0
