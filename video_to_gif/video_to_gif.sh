@@ -50,7 +50,7 @@ if [[ $(command -v ffmpeg) == "" ]]; then
 fi
 
 if [ ! -d "$INPUT_FOLDER" ]; then
-    echo "Input folder dosen't exists"
+    echo "❌ Input folder dosen't exists"
     mkdir $INPUT_FOLDER
     echo "Input folder created. Please move there images that you want to merge."
     exit 1
@@ -82,9 +82,17 @@ for FILE in *.mp4 *.mov; do
 
     generate_palette $FILE
     generate_gif_from_palette $FILE $GENERATED_FILENAME
-    
+
+    if [ $? -ne 0 ]; then
+        echo "❌ Can't generate gif"
+        exit 2
+    fi
+
     rm $PALETTE_FILENAME
 
     cd ..
     mv "$INPUT_FOLDER/$GENERATED_FILENAME" "$OUTPUT_FOLDER/$GENERATED_FILENAME"
 done
+
+echo "✅ Success gifs are in $OUTPUT_FOLDER"
+exit 0

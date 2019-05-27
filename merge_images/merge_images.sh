@@ -31,7 +31,7 @@ EOF
 
 show_install_info() {
 cat << EOF
-Please install "imagemagick"
+❌ Please install "imagemagick"
 https://formulae.brew.sh/formula/imagemagick
 
 You can install by brew
@@ -52,13 +52,13 @@ done
 
 # =============================================
 
-if [[ $(command -v imagemagick) == "" ]]; then
+if [[ $(command -v montage) == "" ]]; then
     show_install_info
     exit 1
 fi
 
 if [ ! -d "$INPUT_FOLDER" ]; then
-    echo "Input folder dosen't exists"
+    echo "❌ Input folder dosen't exists"
     mkdir $INPUT_FOLDER
     echo "Input folder created. Please move there images that you want to merge."
     exit 1
@@ -74,4 +74,10 @@ INPUT_FILES="./$INPUT_FOLDER/*"
 montage $INPUT_FILES -bordercolor $BORDER_COLOR -border $BORDER_WIDTH -tile "$NUMBER_OF_COLUMNS"x -geometry +0+0 $OUTPUT_PATH
 montage $OUTPUT_PATH -bordercolor $BORDER_COLOR -border $BORDER_WIDTH -geometry +0+0 $OUTPUT_PATH
 
-exit 0
+if [ $? -eq 0 ]; then
+  echo "✅ Success: changed pictures are in the folder $OUTPUT_FOLDER"
+  exit 0
+else
+  echo "❌ Failure: there was some problem with $0" >&2
+  exit 1
+fi

@@ -19,7 +19,7 @@ show_help() {
 cat << EOF
 Usage: $0 [options]
 EXAMPLE:
-    $0 -w 400 -h 500 -n 3
+    $0 -w 400 -a 500 -n 3
 OPTIONS:
    -w           Image width
    -a           Image height
@@ -31,7 +31,7 @@ EOF
 
 show_install_info() {
 cat << EOF
-Please install "wget"
+❌ Please install "wget"
 https://formulae.brew.sh/formula/wget
 
 You can install by brew
@@ -82,4 +82,5 @@ do
     INDEX=$((INDEX + 1))
 done
 
+echo "✅ Success: downloaded images are in the folder $OUTPUT_FOLDER"
 exit 0

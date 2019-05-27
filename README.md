@@ -7,6 +7,7 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 ### 🏞 Images 
 * [Merge images](./merge_images)
 * [Lorem image downloader](./lorem_image_downloader)
+* [Images resizer](./images_resizer)
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif)
