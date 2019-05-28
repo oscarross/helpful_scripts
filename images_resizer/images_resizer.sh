@@ -3,7 +3,7 @@
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 # https://github.com/JamieMason/ImageOptim-CLI
-# 
+#
 
 # Params
 OUTPUT_WIDTH=400
@@ -14,7 +14,7 @@ COMPRESSION=false
 
 # Menu
 show_help() {
-cat << EOF
+    cat <<EOF
 Usage: $0 [options]
 EXAMPLE:
     $0 -w 400 -a 300 -c
@@ -27,7 +27,7 @@ EOF
 }
 
 show_install_info_imagemagick() {
-cat << EOF
+    cat <<EOF
 ❌ Please install "imagemagick"
 https://formulae.brew.sh/formula/imagemagick
 
@@ -37,7 +37,7 @@ EOF
 }
 
 show_install_info_imageoptim_cli() {
-cat << EOF
+    cat <<EOF
 ❌ Please install "imageoptim-cli"
 https://formulae.brew.sh/formula/imageoptim-cli
 
@@ -47,7 +47,7 @@ EOF
 }
 
 show_install_info_imageoptim_app() {
-cat << EOF
+    cat <<EOF
 ❌ Please install "imageoptim"
 
 You can download app from site:
@@ -55,14 +55,16 @@ https://imageoptim.com/
 EOF
 }
 
-while getopts "hw:a:c" opt; 
-do
+while getopts "hw:a:c" opt; do
     case "$opt" in
-        h) show_help
-           exit 0 ;;
-        w) OUTPUT_WIDTH="$OPTARG" ;;
-        a) OUTPUT_HEIGHT="$OPTARG" ;;
-        c) COMPRESSION=true ;; 
+    h)
+        show_help
+        exit 0
+        ;;
+    w) OUTPUT_WIDTH="$OPTARG" ;;
+    a) OUTPUT_HEIGHT="$OPTARG" ;;
+    c) COMPRESSION=true ;;
+    *) shift ;;
     esac
 done
 
@@ -81,14 +83,14 @@ if [ ! -d "$INPUT_FOLDER" ]; then
 fi
 
 if [ ! -d $OUTPUT_FOLDER ]; then
-  mkdir -p $OUTPUT_FOLDER;
+    mkdir -p $OUTPUT_FOLDER
 fi
 
 RESIZE=$OUTPUT_WIDTH'x'$OUTPUT_HEIGHT
 if [ $OUTPUT_HEIGHT == 0 ]; then
     RESIZE='x'$OUTPUT_WIDTH
 fi
- 
+
 mogrify -resize $RESIZE -path $OUTPUT_FOLDER $INPUT_FOLDER'/*'
 
 if $COMPRESSION; then
@@ -104,27 +106,25 @@ if $COMPRESSION; then
     fi
     cd $OUTPUT_FOLDER
 
-    if ls *.jpg >/dev/null  2>&1; then
+    if ls *.jpg >/dev/null 2>&1; then
         mogrify -strip -interlace Plane -sampling-factor 4:2:0 -quality 85% *.jpg
     fi
 
-    if ls *.jpeg >/dev/null  2>&1; then
+    if ls *.jpeg >/dev/null 2>&1; then
         mogrify -strip -interlace Plane -sampling-factor 4:2:0 -quality 85% *.jpeg
     fi
 
-    if ls *.png >/dev/null  2>&1; then
+    if ls *.png >/dev/null 2>&1; then
         mogrify -filter Triangle -define filter:support=2 -unsharp 0.25x0.08+8.3+0.045 -dither None -posterize 136 -quality 82 -define png:compression-filter=5 -define png:compression-level=9 -define png:compression-strategy=1 -define png:exclude-chunk=all -interlace none -colorspace sRGB *.png
     fi
 
     imageoptim .
 fi
 
-
-
 if [ $? -eq 0 ]; then
-  echo "✅ Success: changed pictures are in the folder $OUTPUT_FOLDER"
-  exit 0
+    echo "✅ Success: changed pictures are in the folder $OUTPUT_FOLDER"
+    exit 0
 else
-  echo "❌ Failure: there was some problem with $0" >&2
-  exit 1
+    echo "❌ Failure: there was some problem with $0" >&2
+    exit 1
 fi

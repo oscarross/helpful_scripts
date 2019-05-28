@@ -14,7 +14,7 @@ FPS=15
 
 # Menu
 show_help() {
-cat << EOF
+    cat <<EOF
 Usage: $0 [options]
 EXAMPLE:
     $0 -f 15
@@ -24,7 +24,7 @@ EOF
 }
 
 show_install_info() {
-cat << EOF
+    cat <<EOF
 Please install "ffmpeg"
 https://formulae.brew.sh/formula/ffmpeg
 
@@ -33,12 +33,13 @@ You can install by brew
 EOF
 }
 
-while getopts "hf:" opt; 
-do
+while getopts "hf:" opt; do
     case "$opt" in
-        h) show_help
-           exit 0 ;;
-        f)  FPS="$OPTARG" ;;
+    h)
+        show_help
+        exit 0;;
+    f) FPS="$OPTARG" ;;
+    *) shift;;
     esac
 done
 
@@ -57,7 +58,7 @@ if [ ! -d "$INPUT_FOLDER" ]; then
 fi
 
 if [ ! -d $OUTPUT_FOLDER ]; then
-  mkdir -p $OUTPUT_FOLDER;
+    mkdir -p $OUTPUT_FOLDER
 fi
 
 generate_palette() {
@@ -69,14 +70,14 @@ generate_gif_from_palette() {
 }
 
 # Remove whitespaces in filenames
-for FILE in $INPUT_FOLDER/*.mp4 $INPUT_FOLDER/*.mov; do 
-    mv "$FILE" "${FILE// /_}"; 
+for FILE in $INPUT_FOLDER/*.mp4 $INPUT_FOLDER/*.mov; do
+    mv "$FILE" "${FILE// /_}"
 done
 
 for FILE in *.mp4 *.mov; do
     echo $FILE
     cd $INPUT_FOLDER
-    
+
     GENERATED_FILENAME=$(basename -- $FILE)
     GENERATED_FILENAME="${GENERATED_FILENAME%.*}.gif"
 

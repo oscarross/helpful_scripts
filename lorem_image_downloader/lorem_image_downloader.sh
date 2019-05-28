@@ -16,7 +16,7 @@ PREFIX="MOCK_"
 # Menu
 
 show_help() {
-cat << EOF
+    cat <<EOF
 Usage: $0 [options]
 EXAMPLE:
     $0 -w 400 -a 500 -n 3
@@ -30,7 +30,7 @@ EOF
 }
 
 show_install_info() {
-cat << EOF
+    cat <<EOF
 ❌ Please install "wget"
 https://formulae.brew.sh/formula/wget
 
@@ -39,15 +39,17 @@ You can install by brew
 EOF
 }
 
-while getopts "hw:i:a:n:" opt; 
-do
+while getopts "hw:i:a:n:" opt; do
     case "$opt" in
-        h) show_help
-           exit 0 ;;
-        w)  WIDTH="$OPTARG" ;;
-        i)  FIRST_IMAGE_INDEX="$OPTARG" ;;
-        a)  HEIGHT="$OPTARG" ;;
-        n)  NUMBER_OF_IMAGES="$OPTARG" ;;
+    h)
+        show_help
+        exit 0
+        ;;
+    w) WIDTH="$OPTARG" ;;
+    i) FIRST_IMAGE_INDEX="$OPTARG" ;;
+    a) HEIGHT="$OPTARG" ;;
+    n) NUMBER_OF_IMAGES="$OPTARG" ;;
+    *) shift ;;
     esac
 done
 
@@ -59,25 +61,23 @@ if [[ $(command -v wget) == "" ]]; then
 fi
 
 if [ ! -d $OUTPUT_FOLDER ]; then
-  mkdir -p $OUTPUT_FOLDER;
+    mkdir -p $OUTPUT_FOLDER
 fi
 
 cd $OUTPUT_FOLDER
 
 LINK=$BASE_URL/$WIDTH/$HEIGHT
 
-END_NUMBER=$((FIRST_IMAGE_INDEX+NUMBER_OF_IMAGES))
+END_NUMBER=$((FIRST_IMAGE_INDEX + NUMBER_OF_IMAGES))
 
-for (( INDEX=$FIRST_IMAGE_INDEX; INDEX<=$END_NUMBER; INDEX++ ))
-do
-	IMAGE_LINK=$LINK?image=$INDEX
-	FILENAME=$PREFIX$INDEX.png
-	wget $IMAGE_LINK -O $FILENAME
+for ((INDEX = $FIRST_IMAGE_INDEX; INDEX <= $END_NUMBER; INDEX++)); do
+    IMAGE_LINK=$LINK?image=$INDEX
+    FILENAME=$PREFIX$INDEX.png
+    wget $IMAGE_LINK -O $FILENAME
 done
 
 INDEX=0
-for file in ./* 
-do
+for file in ./*; do
     mv "$file" "$PREFIX$INDEX.png"
     INDEX=$((INDEX + 1))
 done

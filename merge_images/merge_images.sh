@@ -17,7 +17,7 @@ NUMBER_OF_COLUMNS=4
 
 # Menu
 show_help() {
-cat << EOF
+  cat <<EOF
 Usage: $0 [options]
 EXAMPLE:
     $0 -c '#323a47' -b 10 -n 2
@@ -30,7 +30,7 @@ EOF
 }
 
 show_install_info() {
-cat << EOF
+  cat <<EOF
 ❌ Please install "imagemagick"
 https://formulae.brew.sh/formula/imagemagick
 
@@ -39,33 +39,35 @@ You can install by brew
 EOF
 }
 
-while getopts "hw:c:n:" opt; 
-do
-    case "$opt" in
-        h) show_help
-           exit 0 ;;
-        w)  BORDER_WIDTH="$OPTARG" ;;
-        c)  BORDER_COLOR="$OPTARG" ;;
-        n)  NUMBER_OF_COLUMNS="$OPTARG" ;;
-    esac
+while getopts "hw:c:n:" opt; do
+  case "$opt" in
+  h)
+    show_help
+    exit 0
+    ;;
+  w) BORDER_WIDTH="$OPTARG" ;;
+  c) BORDER_COLOR="$OPTARG" ;;
+  n) NUMBER_OF_COLUMNS="$OPTARG" ;;
+  *) shift ;;
+  esac
 done
 
 # =============================================
 
 if [[ $(command -v montage) == "" ]]; then
-    show_install_info
-    exit 1
+  show_install_info
+  exit 1
 fi
 
 if [ ! -d "$INPUT_FOLDER" ]; then
-    echo "❌ Input folder dosen't exists"
-    mkdir $INPUT_FOLDER
-    echo "Input folder created. Please move there images that you want to merge."
-    exit 1
+  echo "❌ Input folder dosen't exists"
+  mkdir $INPUT_FOLDER
+  echo "Input folder created. Please move there images that you want to merge."
+  exit 1
 fi
 
 if [ ! -d $OUTPUT_FOLDER ]; then
-  mkdir -p $OUTPUT_FOLDER;
+  mkdir -p $OUTPUT_FOLDER
 fi
 
 OUTPUT_PATH="./$OUTPUT_FOLDER/$GENERATED_FILENAME"
