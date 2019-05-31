@@ -33,12 +33,14 @@ You can install by brew
 EOF
 }
 
-while getopts "hf:" opt; do
+while getopts "hf:i:o:" opt; do
     case "$opt" in
     h)
         show_help
         exit 0;;
     f) FPS="$OPTARG" ;;
+    i) INPUT_FOLDER="$OPTARG" ;;
+    o) OUTPUT_FOLDER="$OPTARG" ;;
     *) shift;;
     esac
 done
@@ -62,37 +64,32 @@ if [ ! -d $OUTPUT_FOLDER ]; then
 fi
 
 generate_palette() {
-    ffmpeg -i $1 -vf fps="$FPS",scale=-1:800:flags=lanczos,palettegen $PALETTE_FILENAME
+    ffmpeg -i $1 -vf fps="$FPS",scale=-1:800:flags=lanczos,palettegen $INPUT_FOLDER/$PALETTE_FILENAME
 }
 
 generate_gif_from_palette() {
-    ffmpeg -i $1 -i $PALETTE_FILENAME -filter_complex "fps=$FPS,scale=-1:800:flags=lanczos[x];[x][1:v]paletteuse" -r "$FPS" $2
+    ffmpeg -i $1 -i $INPUT_FOLDER/$PALETTE_FILENAME -filter_complex "fps=$FPS,scale=-1:800:flags=lanczos[x];[x][1:v]paletteuse" -r "$FPS" $2
 }
 
 # Remove whitespaces in filenames
-for FILE in $INPUT_FOLDER/*.mp4 $INPUT_FOLDER/*.mov; do
+for FILE in `find "$INPUT_FOLDER" -type f -name "*.mov" -o -name "*.mp4"`; do
     mv "$FILE" "${FILE// /_}"
 done
 
-for FILE in *.mp4 *.mov; do
-    echo $FILE
-    cd $INPUT_FOLDER
-
+# Generate GIF
+for FILE in `find "$INPUT_FOLDER" -type f -name "*.mov" -o -name "*.mp4"`; do
     GENERATED_FILENAME=$(basename -- $FILE)
     GENERATED_FILENAME="${GENERATED_FILENAME%.*}.gif"
 
     generate_palette $FILE
-    generate_gif_from_palette $FILE $GENERATED_FILENAME
+    generate_gif_from_palette $FILE $OUTPUT_FOLDER/$GENERATED_FILENAME
 
     if [ $? -ne 0 ]; then
         echo "❌ Can't generate gif"
         exit 2
     fi
 
-    rm $PALETTE_FILENAME
-
-    cd ..
-    mv "$INPUT_FOLDER/$GENERATED_FILENAME" "$OUTPUT_FOLDER/$GENERATED_FILENAME"
+    rm $INPUT_FOLDER/$PALETTE_FILENAME
 done
 
 echo "✅ Success gifs are in $OUTPUT_FOLDER"

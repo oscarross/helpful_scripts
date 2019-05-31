@@ -11,7 +11,9 @@ Documentation
 ### Parameters
 |Name|Description|Default value|
 |:----:|:-----------|:-----:|
-|**f**|FPS|15|
+|**f**|number of FPS|15|
+|**i**|Input folder|`./input_videos`|
+|**o**|Output folder|`./output_images`|
 |**h**|Help|-|
 
 ### Examples
@@ -22,3 +24,7 @@ With default parameters
 With custom parameters
 
 `./video_to_gif.sh -f 30`
+
+With custom localization 
+
+`./video_to_gif.sh -i "a/input_folder" -o "GIFS"`
