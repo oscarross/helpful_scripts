@@ -1,6 +1,6 @@
 # Lorem image downloader
 
-This bash script downloads images from [https://picsum.photos](https://picsum.photos) to created folder `output_images`
+This bash script downloads images from [https://picsum.photos](https://picsum.photos)
 
 ### Requirement
 `wget` 
@@ -15,6 +15,8 @@ Documentation
 |**a**|Image height|300|
 |**n**|Number of images to download|10|
 |**i**|ID number of first image to download|30|
+|**p**|Prefix name|`MOCK_`|
+|**o**|Output folder|`./output_images/`|
 |**h**|Help|-|
 
 ### Examples
@@ -24,4 +26,4 @@ With default parameters
 
 With custom parameters
 
-`./lorem_image_downloader.sh -w 400 -h 500 -n 3 -i 1000`
+`./lorem_image_downloader.sh -w 400 -h 500 -n 3 -i 1000 -o "./Downloads"`

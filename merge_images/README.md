@@ -14,6 +14,8 @@ Documentation
 |**w**|Border width|3|
 |**c**|Border coloe|black|
 |**n**|Number of columns|4|
+|**i**|Input folder|`./input_images/`|
+|**o**|Output folder|`./output_images/`|
 |**h**|Help|-|
 
 ### Examples
@@ -25,6 +27,10 @@ With default parameters
 
 With custom parameters
 
-`./merge_images.sh -c '#ffffff' -w 20 -n 2`
+`./merge_images.sh -c '#ffffff' -w 20 -n 2 -i "Test"`
 
 ![custom](./examples/merged_custom.png)
+
+### Helpful sites
+* [https://imagemagick.org/Usage/montage/](https://imagemagick.org/Usage/montage/)
+* [https://www.ibm.com/developerworks/library/l-graf2/?ca=dgr-lnxw15GraphicsLine](https://www.ibm.com/developerworks/library/l-graf2/?ca=dgr-lnxw15GraphicsLine)

@@ -28,3 +28,6 @@ With custom parameters
 With custom localization 
 
 `./video_to_gif.sh -i "a/input_folder" -o "GIFS"`
+
+### Helpful sites
+* [https://medium.com/@colten_jackson/doing-the-gif-thing-on-debian-82b9760a8483](https://medium.com/@colten_jackson/doing-the-gif-thing-on-debian-82b9760a8483)

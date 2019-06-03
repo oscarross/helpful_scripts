@@ -27,6 +27,8 @@ and move it to `Applications` folder
 |**w**|Image width|400|
 |**a**|Image height|-|
 |**c**|Compression|false|
+|**i**|Input folder|`./input_images/`|
+|**o**|Output folder|`./output_images/`|
 |**h**|Help|-|
 
 ### Examples

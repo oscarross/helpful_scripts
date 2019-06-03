@@ -3,16 +3,15 @@
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 # https://github.com/JamieMason/ImageOptim-CLI
-#
 
 # Params
-OUTPUT_WIDTH=400
-OUTPUT_HEIGHT=0
+IMAGE_WIDTH=400
+IMAGE_HEIGHT=0
 INPUT_FOLDER='./input_images/'
 OUTPUT_FOLDER='./output_images'
 COMPRESSION=false
 
-# Menu
+# Functions
 show_help() {
     cat <<EOF
 Usage: $0 [options]
@@ -22,6 +21,8 @@ OPTIONS:
    -h           Help
    -w           Images width
    -a           Images height
+   -i           Input folder
+   -o           Output folder
    -c           Compression
 EOF
 }
@@ -55,15 +56,32 @@ https://imageoptim.com/
 EOF
 }
 
-while getopts "hw:a:c" opt; do
+show_variables() {
+    cat <<EOF
+============================
+Variables:
+
+IMAGE_WIDTH="$IMAGE_WIDTH"
+IMAGE_HEIGHT="$IMAGE_HEIGHT"
+COMPRESSION="$COMPRESSION"
+INPUT_FOLDER="$INPUT_FOLDER"
+OUTPUT_FOLDER="$OUTPUT_FOLDER"
+============================
+EOF
+}
+
+# Get params
+while getopts "hw:a:i:o:c" opt; do
     case "$opt" in
     h)
         show_help
         exit 0
         ;;
-    w) OUTPUT_WIDTH="$OPTARG" ;;
-    a) OUTPUT_HEIGHT="$OPTARG" ;;
+    w) IMAGE_WIDTH="$OPTARG" ;;
+    a) IMAGE_HEIGHT="$OPTARG" ;;
     c) COMPRESSION=true ;;
+    i) INPUT_FOLDER="$OPTARG" ;;
+    o) OUTPUT_FOLDER="$OPTARG" ;;
     *) shift ;;
     esac
 done
@@ -75,23 +93,28 @@ if [[ $(command -v mogrify) == "" ]]; then
     exit 1
 fi
 
+show_variables
+
 if [ ! -d "$INPUT_FOLDER" ]; then
-    echo "Input folder dosen't exists"
-    mkdir $INPUT_FOLDER
+    echo "❌ Input folder dosen't exists"
+    mkdir "$INPUT_FOLDER"
     echo "Input folder created. Please move there images that you want to merge."
     exit 1
 fi
 
-if [ ! -d $OUTPUT_FOLDER ]; then
-    mkdir -p $OUTPUT_FOLDER
+echo "🔵 Checking that $OUTPUT_FOLDER exist"
+if [ ! -d "$OUTPUT_FOLDER" ]; then
+    echo "🔵 Creating folder $OUTPUT_FOLDER"
+    mkdir -p "$OUTPUT_FOLDER"
 fi
 
-RESIZE=$OUTPUT_WIDTH'x'$OUTPUT_HEIGHT
-if [ $OUTPUT_HEIGHT == 0 ]; then
-    RESIZE='x'$OUTPUT_WIDTH
+RESIZE=$IMAGE_WIDTH'x'$IMAGE_HEIGHT
+if [ $IMAGE_HEIGHT == 0 ]; then
+    RESIZE='x'$IMAGE_WIDTH
 fi
 
-mogrify -resize $RESIZE -path $OUTPUT_FOLDER $INPUT_FOLDER'/*'
+echo "🔵 Start resizing images"
+mogrify -resize "$RESIZE" -path "$OUTPUT_FOLDER" "$INPUT_FOLDER/*"
 
 if $COMPRESSION; then
     if [[ $(command -v imageoptim) == "" ]]; then
@@ -99,12 +122,14 @@ if $COMPRESSION; then
         exit 1
     fi
 
+    echo "🔵 Start compressing images"
+
     IMAGEOPTIM_APP_EXIST=$(mdfind -name 'kMDItemFSName=="ImageOptim.app"' -onlyin /Volumes/Macintosh\ HD/Applications/ -count)
     if [[ $IMAGEOPTIM_APP_EXIST == 0 ]]; then
         show_install_info_imageoptim_app
         exit 1
     fi
-    cd $OUTPUT_FOLDER
+    cd "$OUTPUT_FOLDER"
 
     if ls *.jpg >/dev/null 2>&1; then
         mogrify -strip -interlace Plane -sampling-factor 4:2:0 -quality 85% *.jpg
