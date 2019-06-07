@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Required to install
-# https://formulae.brew.sh/formula/wget
-
 # Params
 WIDTH=300
 HEIGHT=300
@@ -28,16 +25,6 @@ OPTIONS:
    -o           Output folder
    -p           Prefix name
    -h           Help
-EOF
-}
-
-show_install_info() {
-    cat <<EOF
-❌ Please install "wget"
-https://formulae.brew.sh/formula/wget
-
-You can install by brew
-"brew install wget"
 EOF
 }
 
@@ -75,11 +62,6 @@ done
 
 # =============================================
 
-if [[ $(command -v wget) == "" ]]; then
-    show_install_info
-    exit 1
-fi
-
 show_variables
 
 echo "🔵 Checking that $OUTPUT_FOLDER exist"
@@ -99,7 +81,7 @@ for ((INDEX = "$FIRST_IMAGE_INDEX"; INDEX < "$END_NUMBER"; INDEX++)); do
     FILENAME=$PREFIX$INDEX.png
     echo "🔵 Downloading image $IMAGE_LINK"
     echo
-    wget "$IMAGE_LINK" -O "$FILENAME"
+    curl "$IMAGE_LINK" --output "$FILENAME"
 done
 
 echo "🔵 Renaming images"

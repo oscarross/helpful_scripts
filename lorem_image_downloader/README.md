@@ -2,12 +2,6 @@
 
 This bash script downloads images from [https://picsum.photos](https://picsum.photos)
 
-### Requirement
-`wget` 
-
-Documentation
-[https://formulae.brew.sh/formula/wget](https://formulae.brew.sh/formula/wget)
-
 ### Parameters
 |Name|Description|Default value|
 |:----:|:-----------|:-----:|
