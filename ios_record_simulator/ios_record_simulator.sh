@@ -3,6 +3,7 @@
 # Params
 VIDEONAME="video.mp4"
 OUTPUT_FOLDER='./gifs'
+VIDEOS_FOLDER='./videos'
 FPS=15
 
 # Functions
@@ -52,6 +53,12 @@ if [ ! -d "$OUTPUT_FOLDER" ]; then
     mkdir -p "$OUTPUT_FOLDER"
 fi
 
+echo "🔵 Checking that $VIDEOS_FOLDER exist"
+if [ ! -d "$VIDEOS_FOLDER" ]; then
+    echo "🔵 Creating folder $VIDEOS_FOLDER"
+    mkdir -p "$VIDEOS_FOLDER"
+fi
+
 LIST_OF_RUNNING_SIMULATORS=$(xcrun simctl list | grep Booted)
 NUMBER_OF_RUNNING_SIMULATORS=$(xcrun simctl list | grep Booted | wc -l)
 
@@ -74,6 +81,6 @@ echo "Press 'ctrl' + 'c' to stop recording"
 xcrun simctl io booted recordVideo --type=mp4 "$VIDEOS_FOLDER/$VIDEONAME"
 
 echo
-video_to_gif.sh -i "$VIDEOS_FOLDER" -o "$GIFS_FOLDER" -f "$FPS"
+./video_to_gif.sh -i "$VIDEOS_FOLDER" -o "$OUTPUT_FOLDER" -f "$FPS"
 
 exit 0
