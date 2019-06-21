@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Params
-INPUT_FOLDER='./input_videos'
 VIDEONAME="video.mp4"
 OUTPUT_FOLDER='./gifs'
 FPS=15
@@ -14,7 +13,6 @@ EXAMPLE:
     $0 -f 15
 OPTIONS:
    -f           number of FPS
-   -i           Input folder
    -o           Output folder
 EOF
 }
@@ -33,14 +31,13 @@ EOF
 
 # Get params
 
-while getopts "hf:i:o:" opt; do
+while getopts "hf:o:" opt; do
     case "$opt" in
     h)
         show_help
         exit 0
         ;;
     f) FPS="$OPTARG" ;;
-    i) INPUT_FOLDER="$OPTARG" ;;
     o) OUTPUT_FOLDER="$OPTARG" ;;
     *) shift ;;
     esac
@@ -49,13 +46,6 @@ done
 # =============================================
 
 show_variables
-
-if [ ! -d "$INPUT_FOLDER" ]; then
-    echo "❌ Input folder dosen't exists"
-    mkdir "$INPUT_FOLDER"
-    echo "Input folder created. Please move there images that you want to merge."
-    exit 1
-fi
 
 echo "🔵 Checking that $OUTPUT_FOLDER exist"
 if [ ! -d "$OUTPUT_FOLDER" ]; then

@@ -11,7 +11,6 @@ script `video_to_gif.sh`
 |Name|Description|Default value|
 |:----:|:-----------|:-----:|
 |**f**|number of FPS|15|
-|**i**|Input folder|`./input_videos`|
 |**o**|Output folder|`./gifs`|
 |**h**|Help|-|
 
@@ -26,4 +25,4 @@ With custom parameters
 
 With custom localization 
 
-`./ios_record_simulator.sh -i "a/input_folder" -o "GIFS"`
+`./ios_record_simulator.sh -o "a/output_folder" -o "GIFS"`
