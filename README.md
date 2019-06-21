@@ -11,3 +11,6 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif)
+
+### 📱 iOS
+* [iOS record simulator](./ios_record_simulator)
