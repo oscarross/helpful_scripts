@@ -23,7 +23,6 @@ show_variables() {
 Variables:
 
 FPS="$FPS"
-INPUT_FOLDER="$INPUT_FOLDER"
 OUTPUT_FOLDER="$OUTPUT_FOLDER"
 ============================
 EOF
