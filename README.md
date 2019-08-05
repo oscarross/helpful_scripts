@@ -14,3 +14,6 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 
 ### 📱 iOS
 * [iOS record simulator](./ios_record_simulator)
+
+### 🎪 Android
+* [Android rotation script](./androird_rotator)
