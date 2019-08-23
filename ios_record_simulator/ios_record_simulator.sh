@@ -81,6 +81,6 @@ echo "Press 'ctrl' + 'c' to stop recording"
 xcrun simctl io booted recordVideo --type=mp4 "$VIDEOS_FOLDER/$VIDEONAME"
 
 echo
-./video_to_gif.sh -i "$VIDEOS_FOLDER" -o "$OUTPUT_FOLDER" -f "$FPS"
+./helpers/video_to_gif.sh -i "$VIDEOS_FOLDER" -o "$OUTPUT_FOLDER" -f "$FPS"
 
 exit 0

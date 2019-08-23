@@ -1,1 +1,0 @@
-./../video_to_gif/video_to_gif.sh
