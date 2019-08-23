@@ -1,0 +1,1 @@
+./../../merge_images/merge_images.sh

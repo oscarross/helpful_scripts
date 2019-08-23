@@ -5,6 +5,7 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 
 ## List of scripts in this repository:
 ### 🏞 Images 
+* [Diff images](./diff_images)
 * [Merge images](./merge_images)
 * [Lorem image downloader](./lorem_image_downloader)
 * [Images resizer](./images_resizer)
