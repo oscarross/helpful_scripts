@@ -1,3 +1,6 @@
 [submodule "ios_xcode_cleaner"]
 	path = ios_xcode_cleaner
 	url = https://github.com/niklasberglund/xcode-clean.sh
+[submodule "ios_unused_swift_files_variables"]
+	path = ios_unused_swift_files_variables
+	url = https://github.com/PaulTaykalo/swift-scripts
