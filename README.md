@@ -15,6 +15,7 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 
 ### 📱 iOS
 * [iOS record simulator](./ios_record_simulator)
+* [iOS xcode cleaner](https://github.com/niklasberglund/xcode-clean.sh/tree/8cdc61d6e05859bc1d352fe629a48c32d167ec9e) - `xcode-clean.sh` from GITHUB
 
 ### 🎪 Android
 * [Android rotation script](./androird_rotator)
