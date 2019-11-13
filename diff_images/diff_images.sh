@@ -30,13 +30,23 @@ OPTIONS:
 EOF
 }
 
-show_install_info() {
+show_install_info_imagemagick() {
   cat <<EOF
 ❌ Please install "imagemagick"
 https://formulae.brew.sh/formula/imagemagick
 
 You can install by brew
 "brew install imagemagick"
+EOF
+}
+
+show_install_info_ffmpeg() {
+    cat <<EOF
+Please install "ffmpeg"
+https://formulae.brew.sh/formula/ffmpeg
+
+You can install by brew
+"brew install ffmpeg"
 EOF
 }
 
@@ -72,7 +82,12 @@ done
 # =============================================
 
 if [[ $(command -v montage) == "" ]]; then
-  show_install_info
+  show_install_info_imagemagick
+  exit 1
+fi
+
+if [[ $(command -v ffmpeg) == "" ]]; then
+  show_install_info_ffmpeg
   exit 1
 fi
 
@@ -121,4 +136,26 @@ echo "🔵 Start merging images"
 ./helpers/merge_images.sh -i $OUTPUT_FOLDER -o $OUTPUT_FOLDER -n 4 >&- 2>&-
 
 echo "🔵 Start generating gif"
-convert -delay 50 $FIRST_FILE $SECOND_FILE -loop 0 "$OUTPUT_FOLDER/diff.gif"
+GIF_TEMP_DIR="./gif_temp"
+
+if [ ! -d "$GIF_TEMP_DIR" ]; then
+  mkdir -p "$GIF_TEMP_DIR"
+fi
+
+COPY_INDEX=0
+for FILE_PATH in ${INPUT_FILES[*]} 
+do
+  FILENAME="$(basename $FILE_PATH)"
+  cp $FILE_PATH "$GIF_TEMP_DIR"
+  mv "$GIF_TEMP_DIR/$FILENAME" "$GIF_TEMP_DIR/image$COPY_INDEX.png"  
+  ((COPY_INDEX++))
+done
+
+FPS=30
+VIDEO_NAME="temp_video.mp4"
+PALETTE_FILENAME="palette.png"
+ffmpeg -hide_banner -loglevel error -r 3 -i "$GIF_TEMP_DIR/image%01d.png" -c:v libx264 -vf fps=$FPS -pix_fmt yuv420p "$GIF_TEMP_DIR/$VIDEO_NAME"
+ffmpeg -hide_banner -loglevel error -i "$GIF_TEMP_DIR/$VIDEO_NAME" -vf fps="$FPS",scale=-1:800:flags=lanczos,palettegen "$GIF_TEMP_DIR/$PALETTE_FILENAME"
+ffmpeg -hide_banner -loglevel error -i "$GIF_TEMP_DIR/$VIDEO_NAME" -i "$GIF_TEMP_DIR/$PALETTE_FILENAME" -filter_complex "fps=$FPS,scale=-1:800:flags=lanczos[x];[x][1:v]paletteuse" -r "$FPS" "$GIF_TEMP_DIR/diff.gif"
+mv "$GIF_TEMP_DIR/diff.gif" "$OUTPUT_FOLDER/diff.gif"
+rm -rf $GIF_TEMP_DIR
