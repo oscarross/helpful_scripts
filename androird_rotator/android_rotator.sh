@@ -36,20 +36,19 @@ while getopts "hn:" opt; do
     esac
 done
 
-if [[ $(command -v mogrify) == "" ]]; then
+if [[ $(adb --help) == "" ]]; then
     show_install_info_android_platform_tools
     exit 1
 fi
 
 adb shell settings put system accelerometer_rotation 0
 
-while [ $COUNTER -le $ALL_ROTATIONS ] ; do
-    for i in `seq 0 3`
-    do
+while [ $COUNTER -le $ALL_ROTATIONS ]; do
+    for i in $(seq 0 3); do
         sleep 1
         echo ">> ROTATIONS: $COUNTER, STYLE: $i"
         adb shell settings put system user_rotation $i
 
-        COUNTER=$[COUNTER + 1]
+        COUNTER=$((COUNTER + 1))
     done
 done
