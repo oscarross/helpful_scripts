@@ -5,7 +5,7 @@ This repo is a compilation of some **helpful scripts** that automate some tasks 
 
 ## List of scripts in this repository:
 ### 🏞 Images 
-* [Diff images](./diff_images) - script to generate diff from two image
+* [Images diff](./images_diff) - script to generate diff from two image
 * [Merge images](./merge_images) - script to merge all images from input folder
 * [Lorem image downloader](./lorem_image_downloader) - script to download boiler plate images
 * [Images resizer](./images_resizer) - script to resize images
