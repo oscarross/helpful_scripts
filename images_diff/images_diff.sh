@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
@@ -12,9 +12,6 @@ ADD_LABELS_OLD_NEW=false
 
 OUTPUT_PATH='./output_images'
 OUTPUT_FOLDER='GENERATED'
-
-# Constants
-GENERATED_FILENAME='merged.png'
 
 # Functions
 show_help() {
