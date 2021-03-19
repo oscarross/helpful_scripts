@@ -1,4 +1,4 @@
-# Merge images
+# Images merger
 
 This bash script merges all images from folder `input_images` to one image.
 
@@ -21,13 +21,13 @@ Documentation
 ### Examples
 With default parameters
 
-`./merge_images.sh`
+`./images_merger.sh`
 
 ![default](./examples/merged_default.png)
 
 With custom parameters
 
-`./merge_images.sh -c '#ffffff' -w 20 -n 2 -i "Test"`
+`./images_merger.sh -c '#ffffff' -w 20 -n 2 -i "Test"`
 
 ![custom](./examples/merged_custom.png)
 

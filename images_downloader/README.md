@@ -1,4 +1,4 @@
-# Lorem image downloader
+# Images downloader
 
 This bash script downloads images from [https://picsum.photos](https://picsum.photos)
 
@@ -16,8 +16,8 @@ This bash script downloads images from [https://picsum.photos](https://picsum.ph
 ### Examples
 With default parameters
 
-`./lorem_image_downloader.sh`
+`./images_downloader.sh`
 
 With custom parameters
 
-`./lorem_image_downloader.sh -w 400 -h 500 -n 3 -i 1000 -o "./Downloads"`
+`./images_downloader.sh -w 400 -h 500 -n 3 -i 1000 -o "./Downloads"`
