@@ -1,4 +1,4 @@
-# Lorem image downloader
+# Images downloader
 
 This bash script downloads images from [https://picsum.photos](https://picsum.photos)
 
