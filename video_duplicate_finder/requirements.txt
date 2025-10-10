@@ -5,3 +5,4 @@ numpy
 scikit-image
 librosa
 soundfile
+tqdm

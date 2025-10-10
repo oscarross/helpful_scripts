@@ -12,6 +12,7 @@ import numpy as np
 import soundfile as sf
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
+from tqdm import tqdm
 
 # Suppress common audio library warnings globally
 warnings.filterwarnings("ignore", message="PySoundFile failed.*")
@@ -597,9 +598,10 @@ def find_video_duplicates(
             if file_path.lower().endswith(video_extensions):
                 video_files.append(file_path)
 
-    logger.info(f"Found {len(video_files)} video files to analyze")
+    logger.info(f"📁 Found {len(video_files)} video files to analyze")
 
-    # Process videos in parallel
+    # Process videos in parallel with progress bar
+    print("📊 Phase 1: Analyzing video content...")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all video processing tasks
         future_to_file = {
@@ -607,14 +609,18 @@ def find_video_duplicates(
             for file_path in video_files
         }
 
-        # Collect results as they complete
-        for future in as_completed(future_to_file):
-            file_path, result = future.result()
-            if result is not None:
-                video_data[file_path] = result
+        # Collect results as they complete with progress bar
+        with tqdm(total=len(video_files), desc="🎬 Processing videos", unit="files") as pbar:
+            for future in as_completed(future_to_file):
+                file_path, result = future.result()
+                if result is not None:
+                    video_data[file_path] = result
+                pbar.update(1)
+                pbar.set_postfix_str(f"Processed: {len(video_data)}/{len(video_files)}")
 
-    logger.info(f"Successfully processed {len(video_data)} videos")
+    logger.info(f"✅ Successfully processed {len(video_data)} videos")
 
+    print("🔍 Phase 2: Finding duplicate pairs...")
     # Group videos by size for faster initial filtering
     size_groups = {}
     for file_path, data in video_data.items():
@@ -628,52 +634,61 @@ def find_video_duplicates(
     comparisons_made = 0
     comparisons_skipped = 0
 
-    for i, path1 in enumerate(video_paths):
-        for j, path2 in enumerate(video_paths[i + 1 :], i + 1):
-            data1 = video_data[path1]
-            data2 = video_data[path2]
+    # Calculate total possible comparisons for progress bar
+    total_comparisons = len(video_paths) * (len(video_paths) - 1) // 2
 
-            # Quick size-based filter
-            if not quick_file_similarity_check(
-                data1["size"], data2["size"], threshold=0.3
-            ):
-                comparisons_skipped += 1
-                continue
+    with tqdm(total=total_comparisons, desc="🔍 Comparing videos", unit="pairs") as pbar:
+        for i, path1 in enumerate(video_paths):
+            for j, path2 in enumerate(video_paths[i + 1 :], i + 1):
+                data1 = video_data[path1]
+                data2 = video_data[path2]
 
-            # Quick duration filter
-            duration1 = data1["hash_data"]["duration"]
-            duration2 = data2["hash_data"]["duration"]
-            duration_diff = abs(duration1 - duration2) / max(duration1, duration2, 1)
+                # Quick size-based filter
+                if not quick_file_similarity_check(
+                    data1["size"], data2["size"], threshold=0.3
+                ):
+                    comparisons_skipped += 1
+                    pbar.update(1)
+                    continue
 
-            if duration_diff > 0.5:  # Skip if duration differs by more than 50%
-                comparisons_skipped += 1
-                continue
+                # Quick duration filter
+                duration1 = data1["hash_data"]["duration"]
+                duration2 = data2["hash_data"]["duration"]
+                duration_diff = abs(duration1 - duration2) / max(duration1, duration2, 1)
 
-            comparisons_made += 1
+                if duration_diff > 0.5:  # Skip if duration differs by more than 50%
+                    comparisons_skipped += 1
+                    pbar.update(1)
+                    continue
 
-            is_duplicate, similarity_score = are_likely_duplicates(
-                data1["hash_data"],
-                data2["hash_data"],
-                data1["size"],
-                data2["size"],
-                similarity_threshold,
-            )
+                comparisons_made += 1
 
-            if is_duplicate:
-                duplicates.append(
-                    {
-                        "file1": path1,
-                        "file2": path2,
-                        "size1_mb": convert_bytes_to_MB(data1["size"]),
-                        "size2_mb": convert_bytes_to_MB(data2["size"]),
-                        "similarity_score": similarity_score,
-                        "duration1": data1["hash_data"]["duration"],
-                        "duration2": data2["hash_data"]["duration"],
-                    }
+                is_duplicate, similarity_score = are_likely_duplicates(
+                    data1["hash_data"],
+                    data2["hash_data"],
+                    data1["size"],
+                    data2["size"],
+                    similarity_threshold,
                 )
 
+                if is_duplicate:
+                    duplicates.append(
+                        {
+                            "file1": path1,
+                            "file2": path2,
+                            "size1_mb": convert_bytes_to_MB(data1["size"]),
+                            "size2_mb": convert_bytes_to_MB(data2["size"]),
+                            "similarity_score": similarity_score,
+                            "duration1": data1["hash_data"]["duration"],
+                            "duration2": data2["hash_data"]["duration"],
+                        }
+                    )
+
+                pbar.update(1)
+                pbar.set_postfix_str(f"Found: {len(duplicates)} duplicates")
+
     logger.info(
-        f"Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
+        f"📈 Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
     )
     return duplicates
 
@@ -743,10 +758,10 @@ Available hash methods:
     except ValueError:
         max_workers = 4
 
-    print(f"\nUsing hash method: {hash_method}")
-    print(f"Similarity threshold: {threshold}")
-    print(f"Parallel workers: {max_workers}")
-    print("Scanning for duplicates...\n")
+    print(f"⚡ Hash method: {hash_method}")
+    print(f"🎯 Similarity threshold: {threshold}")
+    print(f"🔧 Parallel workers: {max_workers}")
+    print("🚀 Starting duplicate detection...\n")
 
     duplicates = find_video_duplicates(
         directory_to_scan, hash_method, threshold, max_workers
