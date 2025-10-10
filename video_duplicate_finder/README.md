@@ -69,7 +69,7 @@ The script will prompt you for:
 1. **Directory Path**: Enter the path to scan for video files
 2. **Hash Method Selection**:
    - `1` - **pHash** (Perceptual Hash) - *Recommended* - Best for similar content
-   - `2` - **dHash** (Difference Hash) - Good for rotated/scaled videos  
+   - `2` - **dHash** (Difference Hash) - Good for rotated/scaled videos
    - `3` - **Average Hash** - Fastest, basic comparison
    - `4` - **Combined** - All methods together (most accurate)
 
@@ -87,7 +87,7 @@ The script will prompt you for:
 📹 Duplicate Pair #1 (Similarity: 92.5%)
    File 1: /path/to/video1.mp4
            Size: 125.50 MB, Duration: 120.3s
-   File 2: /path/to/video1_copy.mp4  
+   File 2: /path/to/video1_copy.mp4
            Size: 118.20 MB, Duration: 120.3s
    💡 Suggestion: Keep File 1 (larger size)
 
@@ -107,7 +107,7 @@ The script will prompt you for:
 3. **Similarity Scoring**: Combines multiple factors with weights:
    - Hash Similarity (40%) - Primary content comparison
    - Color Histogram (20%) - Visual color patterns
-   - Duration Match (15%) - Video length similarity  
+   - Duration Match (15%) - Video length similarity
    - File Size (15%) - Storage size comparison
    - FPS Match (10%) - Frame rate consistency
 
@@ -121,7 +121,7 @@ The script will prompt you for:
 ## Performance Tips
 
 - **Large Collections**: Use higher similarity thresholds (0.90+) for faster processing
-- **Network Drives**: Copy files locally first for better performance  
+- **Network Drives**: Copy files locally first for better performance
 - **Memory Usage**: Processing is optimized for large video collections
 - **Accuracy vs Speed**: Combined method is most accurate but slowest
 
