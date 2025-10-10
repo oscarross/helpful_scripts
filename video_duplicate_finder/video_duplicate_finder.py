@@ -416,12 +416,38 @@ def find_video_duplicates(
 
 
 if __name__ == "__main__":
-    print("=== Video Duplicate Finder ===")
-    print("Available hash methods:")
-    print("1. phash (perceptual hash - recommended)")
-    print("2. dhash (difference hash)")
-    print("3. average (average hash)")
-    print("4. combined (all methods combined)")
+    hash_methods_info = """=== Video Duplicate Finder ===
+
+Available hash methods:
+─────────────────────────────────────────────────────────────────────────────
+ 1. pHash (Perceptual Hash) - RECOMMENDED
+    • Best for finding similar content with different compression
+    • Detects videos that look the same but have different quality
+    • Resistant to minor changes in brightness/contrast
+    • Ideal for: re-encoded videos, different resolutions
+─────────────────────────────────────────────────────────────────────────────
+ 2. dHash (Difference Hash)
+    • Excellent for detecting rotated or mirrored videos
+    • Focuses on gradients and edge patterns
+    • Good for videos with watermarks or logos added
+    • Ideal for: rotated content, minor edits
+─────────────────────────────────────────────────────────────────────────────
+ 3. Average Hash
+    • Fastest method but least accurate
+    • Only finds very similar or identical videos
+    • Good for exact duplicates with same encoding
+    • Ideal for: quick scans, identical file copies
+─────────────────────────────────────────────────────────────────────────────
+ 4. Combined (All Methods)
+    • Uses all three methods together for maximum accuracy
+    • Slowest but most thorough detection
+    • Combines strengths of all methods
+    • Ideal for: comprehensive analysis, important collections
+─────────────────────────────────────────────────────────────────────────────
+
+💡 Tip: Start with pHash (option 1) for best balance of speed and accuracy"""
+
+    print(hash_methods_info)
 
     directory_to_scan = input(
         "\nEnter the path to the directory with video files: "
