@@ -2,3 +2,6 @@ opencv-python
 imagehash
 Pillow
 numpy
+scikit-image
+librosa
+soundfile
