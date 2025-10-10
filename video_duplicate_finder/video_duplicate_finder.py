@@ -1,5 +1,7 @@
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, Optional
 
 import cv2
 import imagehash
@@ -18,7 +20,22 @@ logging.root.addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
-def calculate_color_histogram(frame):
+def quick_file_similarity_check(size1: int, size2: int, threshold: float = 0.1) -> bool:
+    """
+    Quick pre-filter based on file size similarity
+    Returns True if files are worth comparing in detail
+    """
+    if size1 == size2:
+        return True
+
+    size_diff = abs(size1 - size2)
+    max_size = max(size1, size2)
+
+    # If size difference is less than threshold, worth comparing
+    return (size_diff / max_size) <= threshold
+
+
+def calculate_color_histogram(frame: np.ndarray) -> np.ndarray:
     """
     Calculate color histogram for a frame
     """
@@ -38,7 +55,9 @@ def calculate_color_histogram(frame):
     return np.concatenate([hist_r, hist_g, hist_b])
 
 
-def compare_histograms(hist1, hist2):
+def compare_histograms(
+    hist1: Optional[np.ndarray], hist2: Optional[np.ndarray]
+) -> float:
     """
     Compare two histograms using correlation method
     """
@@ -49,7 +68,9 @@ def compare_histograms(hist1, hist2):
     )
 
 
-def calculate_video_hash(video_path, frame_count=10, hash_method="phash"):
+def calculate_video_hash(
+    video_path: str, frame_count: int = 10, hash_method: str = "phash"
+) -> Optional[Dict]:
     """
     Calculate video hash using multiple methods for better accuracy
 
@@ -60,57 +81,84 @@ def calculate_video_hash(video_path, frame_count=10, hash_method="phash"):
     """
     cap = cv2.VideoCapture(video_path)
 
-    # Get video properties
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    duration = total_frames / fps if fps > 0 else 0
+    if not cap.isOpened():
+        logger.error(f"Cannot open video file: {video_path}")
+        return None
 
-    hashes = []
-    histograms = []
-    frame_interval = max(1, total_frames // frame_count) if total_frames > 0 else 1
+    try:
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
-    # Sample frames from different parts of the video
-    for i in range(frame_count):
-        frame_pos = i * frame_interval
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+        # Skip videos that are too short or have invalid properties
+        if total_frames <= 0 or fps <= 0:
+            logger.warning(
+                f"Invalid video properties for {video_path}: frames={total_frames}, fps={fps}"
+            )
+            return None
 
-        ret, frame = cap.read()
-        if not ret:
-            break
+        duration = total_frames / fps
 
-        # Calculate color histogram
-        histogram = calculate_color_histogram(frame)
-        histograms.append(histogram)
+        hashes = []
+        histograms = []
+        frame_interval = max(1, total_frames // frame_count)
 
-        # Convert frame to grayscale
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        successful_frames = 0
 
-        # Resize frame to standard size
-        resized_frame = cv2.resize(gray_frame, (64, 64))
-        pil_image = Image.fromarray(resized_frame)
+        # Sample frames from different parts of the video
+        for i in range(frame_count):
+            frame_pos = i * frame_interval
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
 
-        # Calculate hash based on method
-        if hash_method == "phash":
-            frame_hash = imagehash.phash(pil_image)
-        elif hash_method == "dhash":
-            frame_hash = imagehash.dhash(pil_image)
-        elif hash_method == "average":
-            frame_hash = imagehash.average_hash(pil_image)
-        elif hash_method == "combined":
-            # Combine multiple hash methods for better accuracy
-            phash = imagehash.phash(pil_image)
-            dhash = imagehash.dhash(pil_image)
-            avg_hash = imagehash.average_hash(pil_image)
-            # Combine hashes
-            combined = str(phash) + str(dhash) + str(avg_hash)
-            hashes.append(hash(combined))
-            continue
+            ret, frame = cap.read()
+            if not ret:
+                continue
 
-        hashes.append(int(str(frame_hash), 16))
+            try:
+                # Calculate color histogram
+                histogram = calculate_color_histogram(frame)
+                histograms.append(histogram)
 
-    cap.release()
+                # Convert frame to grayscale
+                gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    if not hashes:
+                # Resize frame to standard size
+                resized_frame = cv2.resize(gray_frame, (64, 64))
+                pil_image = Image.fromarray(resized_frame)
+
+                # Calculate hash based on method
+                if hash_method == "phash":
+                    frame_hash = imagehash.phash(pil_image)
+                elif hash_method == "dhash":
+                    frame_hash = imagehash.dhash(pil_image)
+                elif hash_method == "average":
+                    frame_hash = imagehash.average_hash(pil_image)
+                elif hash_method == "combined":
+                    # Combine multiple hash methods for better accuracy
+                    phash = imagehash.phash(pil_image)
+                    dhash = imagehash.dhash(pil_image)
+                    avg_hash = imagehash.average_hash(pil_image)
+                    # Combine hashes
+                    combined = str(phash) + str(dhash) + str(avg_hash)
+                    hashes.append(hash(combined))
+                    successful_frames += 1
+                    continue
+
+                hashes.append(int(str(frame_hash), 16))
+                successful_frames += 1
+
+            except Exception as e:
+                logger.warning(f"Error processing frame {i} from {video_path}: {e}")
+                continue
+
+    finally:
+        cap.release()
+
+    # Need at least 3 successful frames for reliable comparison
+    if successful_frames < 3:
+        logger.warning(
+            f"Too few successful frames ({successful_frames}) for {video_path}"
+        )
         return None
 
     # Calculate average histogram
@@ -125,10 +173,11 @@ def calculate_video_hash(video_path, frame_count=10, hash_method="phash"):
         "fps": fps,
         "total_frames": total_frames,
         "histogram": avg_histogram,
+        "analyzed_frames": successful_frames,
     }
 
 
-def convert_bytes_to_MB(bytes_size):
+def convert_bytes_to_MB(bytes_size: int) -> float:
     return bytes_size / (1024 * 1024)
 
 
@@ -197,18 +246,48 @@ def are_likely_duplicates(
     return score >= threshold, score
 
 
-def find_video_duplicates(directory, hash_method="phash", similarity_threshold=0.85):
+def process_single_video(file_path: str, hash_method: str) -> tuple:
     """
-    Find video duplicates using advanced comparison methods
+    Process a single video file and return its data
+    Returns: (file_path, video_data) or (file_path, None) if error
+    """
+    try:
+        file_size = os.path.getsize(file_path)
+        logger.info(
+            f"Analyzing file: {os.path.basename(file_path)}, Size: {convert_bytes_to_MB(file_size):.2f} MB"
+        )
+
+        video_hash_data = calculate_video_hash(
+            file_path, frame_count=15, hash_method=hash_method
+        )
+
+        if video_hash_data:
+            return file_path, {
+                "hash_data": video_hash_data,
+                "size": file_size,
+            }
+        else:
+            return file_path, None
+
+    except Exception as e:
+        logger.error(f"Error processing {file_path}: {str(e)}")
+        return file_path, None
+
+
+def find_video_duplicates(
+    directory, hash_method="phash", similarity_threshold=0.85, max_workers=4
+):
+    """
+    Find video duplicates using advanced comparison methods with optimizations
 
     Args:
         directory: Directory to scan
         hash_method: Hash method to use ('phash', 'dhash', 'average', 'combined')
         similarity_threshold: Minimum similarity score to consider as duplicate
+        max_workers: Number of threads for parallel processing
     """
     video_data = {}
     duplicates = []
-    processed_pairs = set()
 
     # Supported video extensions
     video_extensions = (
@@ -222,43 +301,71 @@ def find_video_duplicates(directory, hash_method="phash", similarity_threshold=0
         ".webm",
         ".mts",
         ".m2ts",
+        ".ogv",
+        ".3gp",
     )
 
+    # Collect all video files first
+    video_files = []
     for root, dirs, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
             if file_path.lower().endswith(video_extensions):
-                try:
-                    file_size = os.path.getsize(file_path)
-                    logger.info(
-                        f"Analyzing file: {file_path}, Size: {convert_bytes_to_MB(file_size):.2f} MB"
-                    )
+                video_files.append(file_path)
 
-                    video_hash_data = calculate_video_hash(
-                        file_path, frame_count=15, hash_method=hash_method
-                    )
+    logger.info(f"Found {len(video_files)} video files to analyze")
 
-                    if video_hash_data:
-                        video_data[file_path] = {
-                            "hash_data": video_hash_data,
-                            "size": file_size,
-                        }
-                except Exception as e:
-                    logger.error(f"Error processing {file_path}: {str(e)}")
-                    continue
+    # Process videos in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all video processing tasks
+        future_to_file = {
+            executor.submit(process_single_video, file_path, hash_method): file_path
+            for file_path in video_files
+        }
 
-    # Compare all videos with each other
+        # Collect results as they complete
+        for future in as_completed(future_to_file):
+            file_path, result = future.result()
+            if result is not None:
+                video_data[file_path] = result
+
+    logger.info(f"Successfully processed {len(video_data)} videos")
+
+    # Group videos by size for faster initial filtering
+    size_groups = {}
+    for file_path, data in video_data.items():
+        size = data["size"]
+        if size not in size_groups:
+            size_groups[size] = []
+        size_groups[size].append(file_path)
+
+    # Only compare videos within similar size ranges
     video_paths = list(video_data.keys())
+    comparisons_made = 0
+    comparisons_skipped = 0
+
     for i, path1 in enumerate(video_paths):
         for j, path2 in enumerate(video_paths[i + 1 :], i + 1):
-            # Avoid duplicate comparisons
-            pair = tuple(sorted([path1, path2]))
-            if pair in processed_pairs:
-                continue
-            processed_pairs.add(pair)
-
             data1 = video_data[path1]
             data2 = video_data[path2]
+
+            # Quick size-based filter
+            if not quick_file_similarity_check(
+                data1["size"], data2["size"], threshold=0.3
+            ):
+                comparisons_skipped += 1
+                continue
+
+            # Quick duration filter
+            duration1 = data1["hash_data"]["duration"]
+            duration2 = data2["hash_data"]["duration"]
+            duration_diff = abs(duration1 - duration2) / max(duration1, duration2, 1)
+
+            if duration_diff > 0.5:  # Skip if duration differs by more than 50%
+                comparisons_skipped += 1
+                continue
+
+            comparisons_made += 1
 
             is_duplicate, similarity_score = are_likely_duplicates(
                 data1["hash_data"],
@@ -281,6 +388,9 @@ def find_video_duplicates(directory, hash_method="phash", similarity_threshold=0
                     }
                 )
 
+    logger.info(
+        f"Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
+    )
     return duplicates
 
 
@@ -309,11 +419,22 @@ if __name__ == "__main__":
     except ValueError:
         threshold = 0.85
 
+    # Performance settings
+    workers_input = input("\nNumber of parallel workers (1-8, default: 4): ").strip()
+    try:
+        max_workers = int(workers_input) if workers_input else 4
+        max_workers = max(1, min(8, max_workers))
+    except ValueError:
+        max_workers = 4
+
     print(f"\nUsing hash method: {hash_method}")
     print(f"Similarity threshold: {threshold}")
+    print(f"Parallel workers: {max_workers}")
     print("Scanning for duplicates...\n")
 
-    duplicates = find_video_duplicates(directory_to_scan, hash_method, threshold)
+    duplicates = find_video_duplicates(
+        directory_to_scan, hash_method, threshold, max_workers
+    )
 
     if duplicates:
         print(f"\n🔍 Found {len(duplicates)} duplicate pairs:")
@@ -332,13 +453,56 @@ if __name__ == "__main__":
                 f"           Size: {dup['size2_mb']:.2f} MB, Duration: {dup['duration2']:.1f}s"
             )
 
+            # Enhanced suggestions based on multiple factors
+            size1_mb = dup["size1_mb"]
+            size2_mb = dup["size2_mb"]
+            duration1 = dup["duration1"]
+            duration2 = dup["duration2"]
+
+            # Determine better file based on multiple criteria
+            file1_score = 0
+            file2_score = 0
+
+            # Size factor (larger is usually better)
+            if size1_mb > size2_mb:
+                file1_score += 2
+            elif size2_mb > size1_mb:
+                file2_score += 2
+
+            # Duration factor (longer might be uncut version)
+            if duration1 > duration2:
+                file1_score += 1
+            elif duration2 > duration1:
+                file2_score += 1
+
+            # File extension preference (mp4 > avi > others)
+            ext1 = dup["file1"].lower().split(".")[-1]
+            ext2 = dup["file2"].lower().split(".")[-1]
+
+            preferred_extensions = ["mp4", "mkv", "mov", "avi", "wmv"]
+            if ext1 in preferred_extensions and ext2 not in preferred_extensions:
+                file1_score += 1
+            elif ext2 in preferred_extensions and ext1 not in preferred_extensions:
+                file2_score += 1
+            elif ext1 in preferred_extensions and ext2 in preferred_extensions:
+                if preferred_extensions.index(ext1) < preferred_extensions.index(ext2):
+                    file1_score += 1
+                elif preferred_extensions.index(ext2) < preferred_extensions.index(
+                    ext1
+                ):
+                    file2_score += 1
+
             # Suggest which file to keep
-            if dup["size1_mb"] > dup["size2_mb"]:
+            if file1_score > file2_score:
+                print("   💡 Suggestion: Keep File 1 (better quality/format)")
+            elif file2_score > file1_score:
+                print("   💡 Suggestion: Keep File 2 (better quality/format)")
+            elif size1_mb > size2_mb:
                 print("   💡 Suggestion: Keep File 1 (larger size)")
-            elif dup["size2_mb"] > dup["size1_mb"]:
+            elif size2_mb > size1_mb:
                 print("   💡 Suggestion: Keep File 2 (larger size)")
             else:
-                print("   💡 Files have similar sizes")
+                print("   💡 Files have similar qualities - choose based on preference")
 
         print("\n" + "=" * 80)
 
