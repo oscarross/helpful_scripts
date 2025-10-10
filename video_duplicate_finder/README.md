@@ -16,6 +16,8 @@ This script helps you find duplicate video files in a specified directory by ana
 Make sure you have Python installed on your system. Additionally, install the required Python packages by running:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
