@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Optional
 
@@ -11,6 +12,11 @@ import numpy as np
 import soundfile as sf
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
+
+# Suppress common audio library warnings globally
+warnings.filterwarnings("ignore", message="PySoundFile failed.*")
+warnings.filterwarnings("ignore", message=".*audioread.*")
+warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
 
 
 # Log configuration with custom colored formatter
@@ -65,8 +71,18 @@ def extract_audio_fingerprint(video_path: str) -> Optional[np.ndarray]:
     Extract audio fingerprint from video using chromagram features
     """
     try:
-        # Extract audio from video using librosa
-        y, sr = librosa.load(video_path, sr=22050, duration=30)  # First 30 seconds
+        # Suppress known audio library warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", message="PySoundFile failed")
+            warnings.filterwarnings("ignore", message=".*audioread.*")
+            warnings.filterwarnings("ignore", module="librosa")
+            warnings.filterwarnings("ignore", module="soundfile")
+            warnings.filterwarnings("ignore", module="audioread")
+
+            # Extract audio from video using librosa
+            y, sr = librosa.load(video_path, sr=22050, duration=30)  # First 30 seconds
 
         # Check if audio was successfully loaded
         if y is None or len(y) == 0:
