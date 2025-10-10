@@ -1,16 +1,16 @@
 import logging
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Optional
-import tempfile
 
 import cv2
 import imagehash
+import librosa
 import numpy as np
+import soundfile as sf
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
-import librosa
-import soundfile as sf
 
 
 # Log configuration with custom colored formatter
@@ -68,6 +68,11 @@ def extract_audio_fingerprint(video_path: str) -> Optional[np.ndarray]:
         # Extract audio from video using librosa
         y, sr = librosa.load(video_path, sr=22050, duration=30)  # First 30 seconds
 
+        # Check if audio was successfully loaded
+        if y is None or len(y) == 0:
+            logger.warning(f"No audio data found in {video_path}")
+            return None
+
         # Extract chromagram features (pitch class profiles)
         chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=512)
 
@@ -78,12 +83,28 @@ def extract_audio_fingerprint(video_path: str) -> Optional[np.ndarray]:
         spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
 
-        # Combine features
+        # Validate feature dimensions before concatenation
+        chroma_mean = np.mean(chroma, axis=1)
+        mfcc_mean = np.mean(mfcc, axis=1)
+        spectral_centroid_mean = np.mean(spectral_centroid)
+        spectral_rolloff_mean = np.mean(spectral_rolloff)
+
+        # Debug: Log feature shapes for troubleshooting
+        logger.debug(f"Audio feature shapes - chroma: {chroma_mean.shape}, mfcc: {mfcc_mean.shape}, "
+                    f"centroid: scalar, rolloff: scalar")
+
+        # Ensure all features are valid numbers
+        if (np.isnan(chroma_mean).any() or np.isnan(mfcc_mean).any() or
+            np.isnan(spectral_centroid_mean) or np.isnan(spectral_rolloff_mean)):
+            logger.warning(f"Invalid audio features extracted from {video_path}")
+            return None
+
+        # Combine features with proper dimensionality
         features = np.concatenate([
-            np.mean(chroma, axis=1),
-            np.mean(mfcc, axis=1),
-            np.mean(spectral_centroid),
-            np.mean(spectral_rolloff)
+            chroma_mean,                                # Shape: (12,)
+            mfcc_mean,                                  # Shape: (13,)
+            [spectral_centroid_mean],                   # Shape: (1,) - wrap scalar in list
+            [spectral_rolloff_mean]                     # Shape: (1,) - wrap scalar in list
         ])
 
         return features
