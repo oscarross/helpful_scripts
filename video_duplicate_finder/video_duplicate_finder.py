@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import tempfile
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -538,9 +539,6 @@ def process_single_video(file_path: str, hash_method: str) -> tuple:
     """
     try:
         file_size = os.path.getsize(file_path)
-        logger.info(
-            f"Analyzing file: {os.path.basename(file_path)}, Size: {convert_bytes_to_MB(file_size):.2f} MB"
-        )
 
         video_hash_data = calculate_video_hash(
             file_path, frame_count=15, hash_method=hash_method
@@ -555,6 +553,7 @@ def process_single_video(file_path: str, hash_method: str) -> tuple:
             return file_path, None
 
     except Exception as e:
+        # Only log errors, not regular processing
         logger.error(f"Error processing {file_path}: {str(e)}")
         return file_path, None
 
@@ -601,7 +600,11 @@ def find_video_duplicates(
     logger.info(f"📁 Found {len(video_files)} video files to analyze")
 
     # Process videos in parallel with progress bar
-    print("📊 Phase 1: Analyzing video content...")
+    print("\n📊 Phase 1: Analyzing video content...")
+
+    # Temporarily disable logging during progress bar
+    logging.getLogger().setLevel(logging.ERROR)
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all video processing tasks
         future_to_file = {
@@ -610,17 +613,36 @@ def find_video_duplicates(
         }
 
         # Collect results as they complete with progress bar
-        with tqdm(total=len(video_files), desc="🎬 Processing videos", unit="files") as pbar:
+        with tqdm(
+            total=len(video_files),
+            desc="🎬 Processing videos",
+            unit="files",
+            position=0,
+            leave=True,
+            ncols=100,
+            bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}'
+        ) as pbar:
             for future in as_completed(future_to_file):
                 file_path, result = future.result()
                 if result is not None:
                     video_data[file_path] = result
+                    # Show current file being processed
+                    current_file = os.path.basename(file_path)
+                    size_mb = convert_bytes_to_MB(result["size"])
+                    pbar.set_postfix_str(f"✅ {current_file[:25]}{'...' if len(current_file) > 25 else ''} ({size_mb:.1f}MB)")
+                else:
+                    current_file = os.path.basename(file_path)
+                    pbar.set_postfix_str(f"❌ Error: {current_file[:25]}{'...' if len(current_file) > 25 else ''}")
                 pbar.update(1)
-                pbar.set_postfix_str(f"Processed: {len(video_data)}/{len(video_files)}")
+                pbar.refresh()  # Force refresh to show the postfix immediately
+
+    # Re-enable logging
+    logging.getLogger().setLevel(logging.INFO)
 
     logger.info(f"✅ Successfully processed {len(video_data)} videos")
 
-    print("🔍 Phase 2: Finding duplicate pairs...")
+    print("\n🔍 Phase 2: Finding duplicate pairs...")
+
     # Group videos by size for faster initial filtering
     size_groups = {}
     for file_path, data in video_data.items():
@@ -637,7 +659,18 @@ def find_video_duplicates(
     # Calculate total possible comparisons for progress bar
     total_comparisons = len(video_paths) * (len(video_paths) - 1) // 2
 
-    with tqdm(total=total_comparisons, desc="🔍 Comparing videos", unit="pairs") as pbar:
+    # Temporarily disable logging during progress bar
+    logging.getLogger().setLevel(logging.ERROR)
+
+    with tqdm(
+        total=total_comparisons,
+        desc="🔍 Comparing videos",
+        unit="pairs",
+        position=0,
+        leave=True,
+        ncols=100,
+        bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}'
+    ) as pbar:
         for i, path1 in enumerate(video_paths):
             for j, path2 in enumerate(video_paths[i + 1 :], i + 1):
                 data1 = video_data[path1]
@@ -649,6 +682,8 @@ def find_video_duplicates(
                 ):
                     comparisons_skipped += 1
                     pbar.update(1)
+                    pbar.set_postfix_str(f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}")
+                    pbar.refresh()
                     continue
 
                 # Quick duration filter
@@ -659,6 +694,8 @@ def find_video_duplicates(
                 if duration_diff > 0.5:  # Skip if duration differs by more than 50%
                     comparisons_skipped += 1
                     pbar.update(1)
+                    pbar.set_postfix_str(f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}")
+                    pbar.refresh()
                     continue
 
                 comparisons_made += 1
@@ -683,9 +720,16 @@ def find_video_duplicates(
                             "duration2": data2["hash_data"]["duration"],
                         }
                     )
+                    # Show when duplicate is found
+                    pbar.set_postfix_str(f"🎯 Found: {len(duplicates)} duplicates | Analyzed: {comparisons_made}")
+                else:
+                    pbar.set_postfix_str(f"🔍 Analyzed: {comparisons_made} | Found: {len(duplicates)}")
 
                 pbar.update(1)
-                pbar.set_postfix_str(f"Found: {len(duplicates)} duplicates")
+                pbar.refresh()  # Force refresh to show the postfix immediately
+
+    # Re-enable logging
+    logging.getLogger().setLevel(logging.INFO)
 
     logger.info(
         f"📈 Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
