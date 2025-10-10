@@ -8,11 +8,32 @@ import imagehash
 import numpy as np
 from PIL import Image
 
-# Log configuration
-log_format = "\033[1;30;41m%(levelname)-8s\033[1;37;40m | \033[1;36;40m%(message)s\033[1;37;40m"  # Colored formatting
+
+# Log configuration with custom colored formatter
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter with colors for different log levels"""
+
+    # ANSI color codes
+    COLORS = {
+        "DEBUG": "\033[1;34m",  # Bright Blue
+        "INFO": "\033[1;32m",  # Bright Green
+        "WARNING": "\033[1;33m",  # Bright Yellow
+        "ERROR": "\033[1;31m",  # Bright Red
+        "CRITICAL": "\033[1;35m",  # Bright Magenta
+    }
+    RESET = "\033[0m"  # Reset color
+
+    def format(self, record):
+        # Get color for the log level
+        color = self.COLORS.get(record.levelname, self.RESET)
+
+        # Format: [LEVEL] | message
+        formatted = f"{color}[{record.levelname:^8}]{self.RESET} | \033[1;36m{record.getMessage()}\033[0m"
+        return formatted
+
 
 logging.root.setLevel(logging.INFO)
-formatter = logging.Formatter(log_format)
+formatter = ColoredFormatter()
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 logging.root.addHandler(stream_handler)
