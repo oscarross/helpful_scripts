@@ -59,7 +59,7 @@ if [ -z "$REPO_PATH" ]; then
     exit 1
 fi
 
-cd $REPO_PATH || exit
+cd "$REPO_PATH" || exit
 
 echo
 if [[ $DRY_RUN == true ]]; then
@@ -70,8 +70,8 @@ fi
 echo
 
 COUNT=0
-for branch in $(git branch -r | egrep -v "$IGNORED_BRANCHES_REGEX"); do
-    if [[ "$(git log $branch --since "$SINCE" | wc -l)" -eq 0 ]]; then
+for branch in $(git branch -r | grep -E -v "$IGNORED_BRANCHES_REGEX"); do
+    if [[ "$(git log "$branch" --since "$SINCE" | wc -l)" -eq 0 ]]; then
         if [[ $DRY_RUN == true ]]; then
             echo "➡️  $branch - will be deleted"
         else
