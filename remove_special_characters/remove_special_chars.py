@@ -6,12 +6,12 @@ import sys
 import unicodedata
 
 
-def convert_to_snake_case(name):
-    """Konwertuje nazwę pliku do formatu snake_case"""
-    # Usuwanie rozszerzenia
+def convert_to_snake_case(name: str) -> str:
+    """Convert filename to snake_case format"""
+    # Extract extension
     base_name, extension = os.path.splitext(name)
 
-    # Zamiana polskich znaków na standardowe odpowiedniki
+    # Replace Polish characters with ASCII equivalents
     polish_chars = {
         "ą": "a",
         "ć": "c",
@@ -36,100 +36,100 @@ def convert_to_snake_case(name):
     for polish_char, replacement in polish_chars.items():
         base_name = base_name.replace(polish_char, replacement)
 
-    # Alternatywna metoda usuwania znaków diakrytycznych dla innych języków
-    # Normalizacja i usunięcie znaków diakrytycznych
+    # Alternative method for removing diacritical marks from other languages
+    # Normalize and remove combining characters
     base_name = unicodedata.normalize("NFKD", base_name)
     base_name = "".join([c for c in base_name if not unicodedata.combining(c)])
 
-    # Zamiana spacji i innych znaków specjalnych na podkreślniki
-    # Usuwanie znaków, które nie są alfanumeryczne ani podkreślnikami
+    # Replace spaces and special characters with underscores
+    # Remove characters that are not alphanumeric or underscores
     clean_name = re.sub(r"[^\w\s-]", "", base_name)
 
-    # Zamiana sekwencji białych znaków i myślników na pojedyncze podkreślniki
+    # Replace sequences of whitespace and hyphens with single underscores
     clean_name = re.sub(r"[\s-]+", "_", clean_name)
 
-    # Zamiana wielkich liter na małe litery i podkreślniki
+    # Convert to lowercase with underscores between words
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", clean_name)
     snake_case = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
-    # Usuwanie podwójnych podkreślników
+    # Remove double underscores
     while "__" in snake_case:
         snake_case = snake_case.replace("__", "_")
 
-    # Usuwanie podkreślników na początku i końcu
+    # Remove leading and trailing underscores
     snake_case = snake_case.strip("_")
 
     return snake_case + extension
 
 
-def process_directory(input_dir, output_dir):
-    """Przetwarza wszystkie pliki w katalogu wejściowym i zapisuje je z nowymi nazwami w katalogu wyjściowym"""
-    # Sprawdzenie czy katalogi istnieją
+def process_directory(input_dir: str, output_dir: str) -> list[tuple[str, str]]:
+    """Process all files in input directory and save them with new names in output directory"""
+    # Check if input directory exists
     if not os.path.exists(input_dir):
-        print(f"Błąd: Katalog wejściowy '{input_dir}' nie istnieje.")
+        print(f"Error: Input directory '{input_dir}' does not exist.")
         sys.exit(1)
 
-    # Tworzenie katalogu wyjściowego, jeśli nie istnieje
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # Lista do przechowywania informacji o zmianach nazw
-    changes = []
+    # List to store rename information
+    changes: list[tuple[str, str]] = []
 
-    # Przetwarzanie plików
+    # Process files
     for root, dirs, files in os.walk(input_dir):
-        # Obliczanie relatywnej ścieżki dla zachowania struktury katalogów
+        # Calculate relative path to preserve directory structure
         rel_path = os.path.relpath(root, input_dir)
         if rel_path == ".":
             rel_path = ""
 
-        # Tworzenie odpowiedniego podkatalogu w output_dir
+        # Create corresponding subdirectory in output_dir
         if rel_path:
             target_dir = os.path.join(output_dir, rel_path)
             os.makedirs(target_dir, exist_ok=True)
         else:
             target_dir = output_dir
 
-        # Przetwarzanie każdego pliku
+        # Process each file
         for file_name in files:
             original_path = os.path.join(root, file_name)
             new_name = convert_to_snake_case(file_name)
             new_path = os.path.join(target_dir, new_name)
 
-            # Kopiowanie pliku z nową nazwą
+            # Copy file with new name
             shutil.copy2(original_path, new_path)
 
-            # Zapisanie informacji o zmianie
+            # Store rename information
             changes.append((file_name, new_name))
 
     return changes
 
 
-def main():
-    """Funkcja główna skryptu"""
+def main() -> None:
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description="Konwertuje nazwy plików do formatu snake_case i usuwa znaki specjalne"
+        description="Convert filenames to snake_case format and remove special characters"
     )
     parser.add_argument(
-        "input_dir", help="Katalog wejściowy z plikami do przetworzenia"
+        "input_dir", help="Input directory with files to process"
     )
     parser.add_argument(
-        "output_dir", help="Katalog wyjściowy dla przetworzonych plików"
+        "output_dir", help="Output directory for processed files"
     )
 
     args = parser.parse_args()
 
-    print(f"Przetwarzanie plików z katalogu: {args.input_dir}")
-    print(f"Zapisywanie wyników do: {args.output_dir}")
+    print(f"Processing files from: {args.input_dir}")
+    print(f"Saving results to: {args.output_dir}")
 
     changes = process_directory(args.input_dir, args.output_dir)
 
-    # Wyświetlanie podsumowania
-    print(f"\nPrzetworzono {len(changes)} plików:")
+    # Display summary
+    print(f"\nProcessed {len(changes)} files:")
     for old_name, new_name in changes:
         if old_name != new_name:
             print(f"  {old_name} -> {new_name}")
         else:
-            print(f"  {old_name} (bez zmian)")
+            print(f"  {old_name} (unchanged)")
 
 
 if __name__ == "__main__":
