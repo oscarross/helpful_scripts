@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
-from random import randrange
 import argparse
 import os
+from random import randrange
+
 import requests
 
-prefix = "MOCK_"
-base_url = "https://picsum.photos"
+PREFIX: str = "MOCK_"
+BASE_URL: str = "https://picsum.photos"
 
 
-def make_dir(name):
+def make_dir(name: str) -> None:
+    """Create directory and change to it."""
     try:
         os.makedirs(name)
     except OSError:
@@ -17,11 +19,12 @@ def make_dir(name):
     os.chdir(name)
 
 
-def download_image(index, width, height):
+def download_image(index: int, width: int, height: int) -> None:
+    """Download a random image from picsum.photos."""
     random_id = randrange(1, 1000)
-    image_url = f'{base_url}/id/{random_id}/{width}/{height}'
-    image_data = requests.get(image_url).content
-    filename = f'{prefix}{index}.png'
+    image_url = f'{BASE_URL}/id/{random_id}/{width}/{height}'
+    image_data = requests.get(image_url, timeout=30).content
+    filename = f'{PREFIX}{index}.png'
 
     print(f'⬇️  Downloading - {filename} - {image_url}')
 
@@ -29,42 +32,28 @@ def download_image(index, width, height):
         output.write(image_data)
 
 
-def main():
+def main() -> None:
+    """Main function to download random images."""
     output_folder = 'output_images'
 
     parser = argparse.ArgumentParser(description='Image downloader')
     parser.add_argument('--width', '-w', action='store',
-                        dest='width', required=False, help='Image width')
-    parser.add_argument('--height', '-h', action='store',
-                        dest='height', required=False, help='Image height')
+                        dest='width', type=int, default=300, help='Image width (default: 300)')
+    parser.add_argument('--height', '-ht', action='store',
+                        dest='height', type=int, default=300, help='Image height (default: 300)')
     parser.add_argument('--number', '-n', action='store',
-                        dest='number', required=True, help='Number of images')
+                        dest='number', type=int, required=True, help='Number of images')
 
-    arguments = parser.parse_args()
+    args = parser.parse_args()
 
-    if not arguments.width:
-        width = 300
-    else:
-        width = arguments.width
-
-    if not arguments.height:
-        height = 300
-    else:
-        height = arguments.height
-
-    if not arguments.number:
-        number_of_images = 10
-    else:
-        number_of_images = arguments.number
-
-    print(f'width {width}')
-    print(f'height {height}')
-    print(f'number_of_images {number_of_images}')
+    print(f'width: {args.width}')
+    print(f'height: {args.height}')
+    print(f'number_of_images: {args.number}')
 
     make_dir(output_folder)
 
-    for index in range(int(number_of_images)):
-        download_image(index, width, height)
+    for index in range(args.number):
+        download_image(index, args.width, args.height)
 
 
 if __name__ == '__main__':
