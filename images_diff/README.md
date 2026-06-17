@@ -4,7 +4,7 @@ Script to generate visual diffs from two images with support for labels, custom 
 
 ### Features
 - ✅ Cross-platform (macOS, Linux)
-- ✅ Add labels (OLD/NEW) to images
+- ✅ Add labels to images with customizable titles
 - ✅ Custom border width and color
 - ✅ Generate diff visualizations (red/green composite)
 - ✅ Create merged montage of all images
@@ -15,12 +15,14 @@ Script to generate visual diffs from two images with support for labels, custom 
 
 |Name|Description|Default|Required|
 |:----:|:-----------|:-----:|:-----:|
-|**f**|First image file|-|Yes|
-|**s**|Second image file|-|Yes|
+|**f1**|First image file|-|Yes|
+|**f2**|Second image file|-|Yes|
 |**w**|Border width|3|No|
 |**c**|Border color|black|No|
 |**o**|Output path|`./output_images`|No|
-|**l**|Add labels (OLD/NEW)|disabled|No|
+|**l**|Add labels to images|disabled|No|
+|**t1**|Custom title for first image|OLD (when -l used)|No|
+|**t2**|Custom title for second image|NEW (when -l used)|No|
 |**g**|Skip GIF generation|disabled|No|
 |**m**|Skip merge generation|disabled|No|
 |**h**|Show help|-|No|
@@ -29,17 +31,22 @@ Script to generate visual diffs from two images with support for labels, custom 
 
 **Basic usage**
 ```bash
-./images_diff.sh -f first.png -s second.png
+./images_diff.sh -f1 first.png -f2 second.png
 ```
 
 **With labels and custom colors**
 ```bash
-./images_diff.sh -f first.png -s second.png -l -c '#323a47' -w 10
+./images_diff.sh -f1 first.png -f2 second.png -l -c '#323a47' -w 10
+```
+
+**With custom title names**
+```bash
+./images_diff.sh -f1 first.png -f2 second.png -l -t1 'BEFORE' -t2 'AFTER'
 ```
 
 **Quick test (skip GIF & merge)**
 ```bash
-./images_diff.sh -f first.png -s second.png -l -g -m
+./images_diff.sh -f1 first.png -f2 second.png -l -g -m
 ```
 
 **Show help**

@@ -17,6 +17,8 @@ BORDER_WIDTH=3
 BORDER_COLOR=black
 FIRST_FILE=""
 SECOND_FILE=""
+FIRST_TITLE=""
+SECOND_TITLE=""
 ADD_LABELS_OLD_NEW=false
 SKIP_GIF=false
 SKIP_MERGE=false
@@ -39,11 +41,14 @@ show_help() {
     cat <<EOF
 Usage: $0 [options]
 EXAMPLE:
-    $0 -f before.png -s after.png -l -c '#323a47' -w 10
+    $0 -f1 before.png -f2 after.png -l -c '#323a47' -w 10
+    $0 -f1 before.png -f2 after.png -l -t1 'OLD' -t2 'NEW'
 OPTIONS:
-   -f           First file (required)
-   -s           Second file (required)
-   -l           Add labels OLD / NEW
+   -f1          First file (required)
+   -f2          Second file (required)
+   -l           Add labels (uses -t1 and -t2, or defaults to OLD/NEW)
+   -t1          First image title (default when -l: OLD)
+   -t2          Second image title (default when -l: NEW)
    -w           Border width (default: 3)
    -c           Border color (default: black)
    -o           Output path (default: ./output_images)
@@ -80,30 +85,68 @@ Variables:
 
 BORDER_WIDTH="$BORDER_WIDTH"
 BORDER_COLOR="$BORDER_COLOR"
+FIRST_TITLE="$FIRST_TITLE"
+SECOND_TITLE="$SECOND_TITLE"
 INPUT_FOLDER="$INPUT_FOLDER"
 OUTPUT_PATH="$OUTPUT_PATH"
 ============================
 EOF
 }
 
-# Get params
-while getopts "hw:c:o:f:s:lgm" opt; do
-    case "$opt" in
-    h)
+# Get params - custom parser for multi-char options like -f1, -f2, -t1, -t2
+i=1
+while [ $i -le $# ]; do
+    arg="${!i}"
+    case "$arg" in
+    -h)
         show_help
         exit 0
         ;;
-    f) FIRST_FILE="$OPTARG" ;;
-    s) SECOND_FILE="$OPTARG" ;;
-    w) BORDER_WIDTH="$OPTARG" ;;
-    c) BORDER_COLOR="$OPTARG" ;;
-    o) OUTPUT_PATH="$OPTARG" ;;
-    l) ADD_LABELS_OLD_NEW=true ;;
-    g) SKIP_GIF=true ;;
-    m) SKIP_MERGE=true ;;
-    *) shift ;;
+    -f1)
+        i=$((i + 1))
+        FIRST_FILE="${!i}"
+        ;;
+    -f2)
+        i=$((i + 1))
+        SECOND_FILE="${!i}"
+        ;;
+    -t1)
+        i=$((i + 1))
+        FIRST_TITLE="${!i}"
+        ;;
+    -t2)
+        i=$((i + 1))
+        SECOND_TITLE="${!i}"
+        ;;
+    -w)
+        i=$((i + 1))
+        BORDER_WIDTH="${!i}"
+        ;;
+    -c)
+        i=$((i + 1))
+        BORDER_COLOR="${!i}"
+        ;;
+    -o)
+        i=$((i + 1))
+        OUTPUT_PATH="${!i}"
+        ;;
+    -l)
+        ADD_LABELS_OLD_NEW=true
+        ;;
+    -g)
+        SKIP_GIF=true
+        ;;
+    -m)
+        SKIP_MERGE=true
+        ;;
     esac
+    i=$((i + 1))
 done
+
+if $ADD_LABELS_OLD_NEW; then
+    FIRST_TITLE="${FIRST_TITLE:-OLD}"
+    SECOND_TITLE="${SECOND_TITLE:-NEW}"
+fi
 
 # =============================================
 
@@ -120,12 +163,12 @@ fi
 show_variables
 
 if [ -z "$FIRST_FILE" ]; then
-    echo "❌ PLEASE SPECIFY FIRST FILE BY ADDING '-f filepath'"
+    echo "❌ PLEASE SPECIFY FIRST FILE BY ADDING '-f1 filepath'"
     exit 1
 fi
 
 if [ -z "$SECOND_FILE" ]; then
-    echo "❌ PLEASE SPECIFY SECOND FILE BY ADDING '-s filepath'"
+    echo "❌ PLEASE SPECIFY SECOND FILE BY ADDING '-f2 filepath'"
     exit 1
 fi
 
@@ -156,29 +199,24 @@ for index in ${!INPUT_FILES[@]}; do
     FILE_PATH="${INPUT_FILES[$index]}"
     FILENAME="$(basename "$FILE_PATH")"
     NEW_FILE_PATH="$OUTPUT_PATH/$OUTPUT_FOLDER/$FILENAME"
+    LABEL="$FILENAME"
 
     if $ADD_LABELS_OLD_NEW; then
         if [ $index -gt 0 ]; then
-            if [ -z "$FONT_PATH" ]; then
-                convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "OLD" "$NEW_FILE_PATH"
-            else
-                convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "OLD" "$NEW_FILE_PATH"
-            fi
+            LABEL="$SECOND_TITLE"
         else
-            if [ -z "$FONT_PATH" ]; then
-                convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "NEW" "$NEW_FILE_PATH"
-            else
-                convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "NEW" "$NEW_FILE_PATH"
-            fi
-        fi
-    else
-        if [ -z "$FONT_PATH" ]; then
-            convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "$FILENAME" "$NEW_FILE_PATH"
-        else
-            convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "$FILENAME" "$NEW_FILE_PATH"
+            LABEL="$FIRST_TITLE"
         fi
     fi
+
+    if [ -z "$FONT_PATH" ]; then
+        convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "$LABEL" "$NEW_FILE_PATH"
+    else
+        convert "$FILE_PATH" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "$LABEL" "$NEW_FILE_PATH"
+    fi
 done
+
+echo "✅ Titles added successfully"
 
 echo "🔵 Start generating diffs"
 
@@ -190,18 +228,17 @@ convert '(' "$FIRST_FILE" -flatten -grayscale Rec709Luminance ')' \
     -channel RGB -combine "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
 
 if $ADD_LABELS_OLD_NEW; then
-    if [ -z "$FONT_PATH" ]; then
-        convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "OLD [red] NEW [green].png" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
-    else
-        convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "OLD [red] NEW [green].png" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
-    fi
+    DIFF_LABEL="$FIRST_TITLE [red] $SECOND_TITLE [green]"
 else
-    if [ -z "$FONT_PATH" ]; then
-        convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "FIRST [red] SECOND [green].png" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
-    else
-        convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "FIRST [red] SECOND [green].png" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
-    fi
+    DIFF_LABEL="FIRST [red] SECOND [green]"
 fi
+
+if [ -z "$FONT_PATH" ]; then
+    convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "$DIFF_LABEL" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
+else
+    convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "$DIFF_LABEL" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
+fi
+
 
 if [ -z "$FONT_PATH" ]; then
     convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "DIFF" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png"
@@ -211,7 +248,11 @@ fi
 
 echo "🔵 Start merging images"
 if ! $SKIP_MERGE; then
-    ./helpers/merge_images.sh -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR"
+    # Get the original filenames for correct merge order
+    FIRST_FILENAME="$(basename "$FIRST_FILE")"
+    SECOND_FILENAME="$(basename "$SECOND_FILE")"
+    
+    ./helpers/merge_images.sh -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
 else
     echo "⏭️  Skipping merge (use -m to disable)"
 fi
