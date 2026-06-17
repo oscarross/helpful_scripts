@@ -1,26 +1,53 @@
 # Diff images
 
-Script to generate diff from two image
+Script to generate visual diffs from two images with support for labels, custom colors, and multi-format output (PNG, GIF, merged montage).
+
+### Features
+- ✅ Cross-platform (macOS, Linux)
+- ✅ Add labels (OLD/NEW) to images
+- ✅ Custom border width and color
+- ✅ Generate diff visualizations (red/green composite)
+- ✅ Create merged montage of all images
+- ✅ Generate animated GIF for quick comparison
+- ✅ Input validation and error handling
 
 ### Parameters
-|Name|Description|Default value|
-|:----:|:-----------|:-----:|
-|**f**|First file|-|
-|**s**|Second file|-|
-|**w**|Border width|3|
-|**c**|Border color|black|
-|**o**|Output folder|`./output_images/GENERATED`|
-|**l**|Add Add labels OLD / NEW|disabled|
-|**h**|Help|-|
+
+|Name|Description|Default|Required|
+|:----:|:-----------|:-----:|:-----:|
+|**f**|First image file|-|Yes|
+|**s**|Second image file|-|Yes|
+|**w**|Border width|3|No|
+|**c**|Border color|black|No|
+|**o**|Output path|`./output_images`|No|
+|**l**|Add labels (OLD/NEW)|disabled|No|
+|**g**|Skip GIF generation|disabled|No|
+|**m**|Skip merge generation|disabled|No|
+|**h**|Show help|-|No|
 
 ### Examples
-`./images_diff.sh -f first_file.png -s second_file.png`images_diff
 
-With custom parameters
-`./images_diff.sh -f first_file.png -s second_file.png -w 10 -o "./Downloads -l"`
+**Basic usage**
+```bash
+./images_diff.sh -f first.png -s second.png
+```
+
+**With labels and custom colors**
+```bash
+./images_diff.sh -f first.png -s second.png -l -c '#323a47' -w 10
+```
+
+**Quick test (skip GIF & merge)**
+```bash
+./images_diff.sh -f first.png -s second.png -l -g -m
+```
+
+**Show help**
+```bash
+./images_diff.sh -h
+```
 
 ### Example result
-`./images_diff.sh -f first.png -s second.png`
 
 **Input images**
 
@@ -31,10 +58,45 @@ With custom parameters
 
 **Output images**
 
-|Name|Image|
+|Name|Description|
 |:----:|:-----------|
-|`diff_red_green.png`|![after](./examples/diff_red_green.png)|
-|`diff.png`|![after](./examples/diff.png)|
-|`merged.png`|![after](./examples/merged.png)|
-|`diff.gif`|![after](./examples/diff.gif)|
+|`diff_red_green.png`|Red/green composite diff visualization|
+|`diff.png`|AE metric diff with red highlights|
+|`merged.png`|Montage of all 5 images (before, after, diff, diff_red_green, with labels)|
+|`diff.gif`|Animated GIF alternating between images|
+
+### Output Structure
+```
+output_images/GENERATED/
+├── before.png              # Original first image with title
+├── after.png               # Original second image with title
+├── diff.png                # AE metric diff
+├── diff_red_green.png      # Red/green visualization
+├── merged.png              # Montage of all 5 images
+└── diff.gif                # Animated comparison
+```
+
+### Installation
+
+Requires ImageMagick and FFmpeg:
+```bash
+# macOS
+brew install imagemagick ffmpeg
+
+# Linux (Ubuntu/Debian)
+sudo apt-get install imagemagick ffmpeg
+
+# Linux (Fedora)
+sudo dnf install ImageMagick ffmpeg
+```
+
+### Recent Improvements
+
+See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for details on latest updates:
+- Cross-platform font support (macOS & Linux)
+- Input file validation
+- New skip options for faster testing
+- Better error handling and cleanup
+- Proper array/variable quoting
+- Consistent parameter passing
 
