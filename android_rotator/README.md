@@ -19,8 +19,8 @@ This bash script will rotate you device by adb tools
 ### Examples
 With default parameters
 
-`./androird_rotator.sh`
+`./android_rotator.sh`
 
 With custom parameters
 
-`./androird_rotator.sh -n 100`
+`./android_rotator.sh -n 100`

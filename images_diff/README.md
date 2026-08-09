@@ -97,13 +97,3 @@ sudo apt-get install imagemagick ffmpeg
 sudo dnf install ImageMagick ffmpeg
 ```
 
-### Recent Improvements
-
-See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for details on latest updates:
-- Cross-platform font support (macOS & Linux)
-- Input file validation
-- New skip options for faster testing
-- Better error handling and cleanup
-- Proper array/variable quoting
-- Consistent parameter passing
-

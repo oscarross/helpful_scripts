@@ -19,6 +19,7 @@ git submodule update --init --recursive
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif) - script to generate gif from video
+* [Video duplicate finder](./video_duplicate_finder) - script to find duplicate video files using perceptual hashing
 
 ### 📱 iOS
 * [iOS record simulator](./ios_record_simulator) - script to automate recording from iOS simulator

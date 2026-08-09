@@ -12,7 +12,7 @@ Documentation
 |Name|Description|Default value|
 |:----:|:-----------|:-----:|
 |**w**|Border width|3|
-|**c**|Border coloe|black|
+|**c**|Border color|black|
 |**n**|Number of columns|4|
 |**i**|Input folder|`./input_images/`|
 |**o**|Output folder|`./output_images/`|

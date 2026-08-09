@@ -6,14 +6,14 @@ This bash script downloads images from [https://picsum.photos](https://picsum.ph
 |Name|Description|Default value|
 |:----:|:-----------|:-----:|
 |**w**|Image width|300|
-|**h**|Image height|300|
-|**n**|Number of images to download|10|
+|**ht**|Image height|300|
+|**n**|Number of images to download|required, no default|
 
 ### Examples
-With default parameters
+With default width/height
 
-`./lorem_image_downloader.py -n 5`
+`./image_downloader.py -n 5`
 
 With custom parameters
 
-`./lorem_image_downloader.sh -w 400 -h 500 -n 3`
+`./image_downloader.py -w 400 -ht 500 -n 3`
