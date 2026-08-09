@@ -10,6 +10,14 @@ This repository contains git submodules. After cloning, run:
 git submodule update --init --recursive
 ```
 
+## Development
+
+This repo lints shell scripts with [ShellCheck](https://www.shellcheck.net/) and Python scripts with [ruff](https://docs.astral.sh/ruff/), run via [pre-commit](https://pre-commit.com/) and checked in CI on every PR. To run them locally before committing:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## List of scripts in this repository:
 ### 🏞 Images 
 * [Images diff](./images_diff) - script to generate diff from two image

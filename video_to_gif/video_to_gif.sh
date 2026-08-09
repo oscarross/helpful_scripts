@@ -93,11 +93,11 @@ fi
 
 echo "🔵 Removing whitespaces in filenames"
 cd "$INPUT_FOLDER"
-for f in *; do mv "$f" $(echo $f | tr ' ' '_'); done
+for f in *; do mv "$f" "$(echo "$f" | tr ' ' '_')"; done
 cd ..
 
-for FILE in $(find "$INPUT_FOLDER" -type f -name "*.mov" -o -name "*.mp4"); do
-    GENERATED_FILENAME=$(basename -- $FILE)
+while IFS= read -r -d '' FILE; do
+    GENERATED_FILENAME=$(basename -- "$FILE")
     GENERATED_FILENAME="${GENERATED_FILENAME%.*}.gif"
 
     generate_palette "$FILE"
@@ -109,7 +109,7 @@ for FILE in $(find "$INPUT_FOLDER" -type f -name "*.mov" -o -name "*.mp4"); do
     fi
 
     rm "$INPUT_FOLDER/$PALETTE_FILENAME"
-done
+done < <(find "$INPUT_FOLDER" -type f \( -name "*.mov" -o -name "*.mp4" \) -print0)
 
 echo "✅ Success gifs are in $OUTPUT_FOLDER"
 exit 0

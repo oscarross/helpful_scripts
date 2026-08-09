@@ -1,7 +1,5 @@
 import logging
 import os
-import sys
-import tempfile
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Optional
@@ -10,7 +8,6 @@ import cv2
 import imagehash
 import librosa
 import numpy as np
-import soundfile as sf
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
 from tqdm import tqdm
@@ -554,7 +551,7 @@ def process_single_video(file_path: str, hash_method: str) -> tuple:
 
     except Exception as e:
         # Only log errors, not regular processing
-        logger.error(f"Error processing {file_path}: {str(e)}")
+        logger.error(f"Error processing {file_path}: {e!s}")
         return file_path, None
 
 
