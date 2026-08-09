@@ -190,13 +190,13 @@ if [ ! -d "$OUTPUT_PATH/$OUTPUT_FOLDER" ]; then
 fi
 
 echo "🔵 Delete contents inside $OUTPUT_FOLDER folder"
-rm -rf $OUTPUT_PATH/$OUTPUT_FOLDER/* $OUTPUT_PATH/$OUTPUT_FOLDER/.[a-zA-Z0-9]*
+rm -rf "${OUTPUT_PATH:?}/${OUTPUT_FOLDER:?}"/* "${OUTPUT_PATH:?}/${OUTPUT_FOLDER:?}"/.[a-zA-Z0-9]*
 
-INPUT_FILES=($FIRST_FILE $SECOND_FILE)
+INPUT_FILES=("$FIRST_FILE" "$SECOND_FILE")
 
 echo "🔵 Start adding titles to images"
 
-for index in ${!INPUT_FILES[@]}; do
+for index in "${!INPUT_FILES[@]}"; do
     FILE_PATH="${INPUT_FILES[$index]}"
     FILENAME="$(basename "$FILE_PATH")"
     NEW_FILE_PATH="$OUTPUT_PATH/$OUTPUT_FOLDER/$FILENAME"

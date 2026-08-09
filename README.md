@@ -10,6 +10,14 @@ This repository contains git submodules. After cloning, run:
 git submodule update --init --recursive
 ```
 
+## Development
+
+This repo lints shell scripts with [ShellCheck](https://www.shellcheck.net/) and Python scripts with [ruff](https://docs.astral.sh/ruff/), run via [pre-commit](https://pre-commit.com/) and checked in CI on every PR. To run them locally before committing:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## List of scripts in this repository:
 ### 🏞 Images 
 * [Images diff](./images_diff) - script to generate diff from two image
@@ -19,6 +27,7 @@ git submodule update --init --recursive
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif) - script to generate gif from video
+* [Video duplicate finder](./video_duplicate_finder) - script to find duplicate video files using perceptual hashing
 
 ### 📱 iOS
 * [iOS record simulator](./ios_record_simulator) - script to automate recording from iOS simulator
@@ -27,9 +36,6 @@ git submodule update --init --recursive
 
 ### 💾 GIT 
 * [GIT delete old branches](./git_delete_old_branches_local_and_remote) - script to delete branches (local and remote) older than passed date
-
-### 🎪 Android
-* [Android rotation script](./android_rotator) - script to rotate android device
 
 ### 📄 Text/Files
 * [Remove special characters](./remove_special_characters) - script to convert filenames to snake_case and remove special characters

@@ -23,6 +23,6 @@ With custom parameters
 
 `./ios_record_simulator.sh -f 30`
 
-With custom localization 
+With custom output folder
 
-`./ios_record_simulator.sh -o "a/output_folder" -o "GIFS"`
+`./ios_record_simulator.sh -o "a/output_folder/GIFS"`
