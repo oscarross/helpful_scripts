@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Params
 VIDEONAME="video.mp4"

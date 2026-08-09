@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Required to install
 # https://formulae.brew.sh/formula/ffmpeg

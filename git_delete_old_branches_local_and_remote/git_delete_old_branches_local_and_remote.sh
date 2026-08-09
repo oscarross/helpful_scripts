@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 REPO_PATH=''
 DRY_RUN=false
