@@ -29,8 +29,5 @@ git submodule update --init --recursive
 ### 💾 GIT 
 * [GIT delete old branches](./git_delete_old_branches_local_and_remote) - script to delete branches (local and remote) older than passed date
 
-### 🎪 Android
-* [Android rotation script](./android_rotator) - script to rotate android device
-
 ### 📄 Text/Files
 * [Remove special characters](./remove_special_characters) - script to convert filenames to snake_case and remove special characters
