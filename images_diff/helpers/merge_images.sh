@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # This script merges images using ImageMagick's montage command
 # It takes an input folder and creates a merged image with multiple columns

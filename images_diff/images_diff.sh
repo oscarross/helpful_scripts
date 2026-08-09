@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
