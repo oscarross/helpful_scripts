@@ -3,7 +3,7 @@
 This bash converts all videos (`mp4` or `mov`) from folder `input_videos` to `gifs`.
 
 ### Requirement
-`ffmpeg` 
+`ffmpeg`
 
 Documentation
 [https://formulae.brew.sh/formula/ffmpeg](https://formulae.brew.sh/formula/ffmpeg)
@@ -25,7 +25,7 @@ With custom parameters
 
 `./video_to_gif.sh -f 30`
 
-With custom localization 
+With custom localization
 
 `./video_to_gif.sh -i "a/input_folder" -o "GIFS"`
 

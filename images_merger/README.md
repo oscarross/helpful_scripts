@@ -3,7 +3,7 @@
 This bash script merges all images from folder `input_images` to one image.
 
 ### Requirement
-`imagemagick` 
+`imagemagick`
 
 Documentation
 [https://formulae.brew.sh/formula/imagemagick](https://formulae.brew.sh/formula/imagemagick)

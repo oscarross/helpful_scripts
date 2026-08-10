@@ -19,7 +19,7 @@ pre-commit install
 ```
 
 ## List of scripts in this repository:
-### 🏞 Images 
+### 🏞 Images
 * [Images diff](./images_diff) - script to generate diff from two image
 * [Images merger](./images_merger) - script to merge all images from input folder
 * [Images downloader](./images_downloader) - script to download boiler plate images
@@ -34,7 +34,7 @@ pre-commit install
 * [iOS xcode cleaner](https://github.com/niklasberglund/xcode-clean.sh/tree/8cdc61d6e05859bc1d352fe629a48c32d167ec9e) - **submodule from GITHUB** script to clean xcode
 * [iOS unused swift files and variables](https://github.com/PaulTaykalo/swift-scripts) - **submodule from GITHUB** script to find unused swift files and variables
 
-### 💾 GIT 
+### 💾 GIT
 * [GIT delete old branches](./git_delete_old_branches_local_and_remote) - script to delete branches (local and remote) older than passed date
 
 ### 📄 Text/Files
