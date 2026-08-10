@@ -3,7 +3,7 @@
 This Bash script deletes all branches (local and remote) older than passed date.
 
 ### Requirement
-`egrep` 
+`egrep`
 `git`
 
 ### Parameters
@@ -17,9 +17,8 @@ This Bash script deletes all branches (local and remote) older than passed date.
 ### Examples
 DRY RUN mode
 
-`./git_delete_old_branches_local_and_remote.sh -r PATH_TO_REPO -s "3 days ago" -d` 
+`./git_delete_old_branches_local_and_remote.sh -r PATH_TO_REPO -s "3 days ago" -d`
 
 Delete mode
 
 `./git_delete_old_branches_local_and_remote.sh -r PATH_TO_REPO -s "2 weeks ago"`
-

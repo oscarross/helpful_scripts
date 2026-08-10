@@ -105,22 +105,30 @@ def extract_audio_fingerprint(video_path: str) -> Optional[np.ndarray]:
         spectral_rolloff_mean = np.mean(spectral_rolloff)
 
         # Debug: Log feature shapes for troubleshooting
-        logger.debug(f"Audio feature shapes - chroma: {chroma_mean.shape}, mfcc: {mfcc_mean.shape}, "
-                    f"centroid: scalar, rolloff: scalar")
+        logger.debug(
+            f"Audio feature shapes - chroma: {chroma_mean.shape}, mfcc: {mfcc_mean.shape}, "
+            f"centroid: scalar, rolloff: scalar"
+        )
 
         # Ensure all features are valid numbers
-        if (np.isnan(chroma_mean).any() or np.isnan(mfcc_mean).any() or
-            np.isnan(spectral_centroid_mean) or np.isnan(spectral_rolloff_mean)):
+        if (
+            np.isnan(chroma_mean).any()
+            or np.isnan(mfcc_mean).any()
+            or np.isnan(spectral_centroid_mean)
+            or np.isnan(spectral_rolloff_mean)
+        ):
             logger.warning(f"Invalid audio features extracted from {video_path}")
             return None
 
         # Combine features with proper dimensionality
-        features = np.concatenate([
-            chroma_mean,                                # Shape: (12,)
-            mfcc_mean,                                  # Shape: (13,)
-            [spectral_centroid_mean],                   # Shape: (1,) - wrap scalar in list
-            [spectral_rolloff_mean]                     # Shape: (1,) - wrap scalar in list
-        ])
+        features = np.concatenate(
+            [
+                chroma_mean,  # Shape: (12,)
+                mfcc_mean,  # Shape: (13,)
+                [spectral_centroid_mean],  # Shape: (1,) - wrap scalar in list
+                [spectral_rolloff_mean],  # Shape: (1,) - wrap scalar in list
+            ]
+        )
 
         return features
 
@@ -128,7 +136,10 @@ def extract_audio_fingerprint(video_path: str) -> Optional[np.ndarray]:
         logger.warning(f"Could not extract audio from {video_path}: {e}")
         return None
 
-def compare_audio_fingerprints(fp1: Optional[np.ndarray], fp2: Optional[np.ndarray]) -> float:
+
+def compare_audio_fingerprints(
+    fp1: Optional[np.ndarray], fp2: Optional[np.ndarray]
+) -> float:
     """
     Compare two audio fingerprints using cosine similarity
     """
@@ -144,6 +155,7 @@ def compare_audio_fingerprints(fp1: Optional[np.ndarray], fp2: Optional[np.ndarr
 
     return dot_product / norm_product
 
+
 def calculate_ssim_similarity(frame1: np.ndarray, frame2: np.ndarray) -> float:
     """
     Calculate SSIM (Structural Similarity Index) between two frames
@@ -156,7 +168,10 @@ def calculate_ssim_similarity(frame1: np.ndarray, frame2: np.ndarray) -> float:
             frame2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
 
         # Resize to same dimensions
-        h, w = min(frame1.shape[0], frame2.shape[0]), min(frame1.shape[1], frame2.shape[1])
+        h, w = (
+            min(frame1.shape[0], frame2.shape[0]),
+            min(frame1.shape[1], frame2.shape[1]),
+        )
         frame1 = cv2.resize(frame1, (w, h))
         frame2 = cv2.resize(frame2, (w, h))
 
@@ -167,13 +182,16 @@ def calculate_ssim_similarity(frame1: np.ndarray, frame2: np.ndarray) -> float:
     except Exception:
         return 0.0
 
+
 def extract_keypoint_features(frame: np.ndarray) -> Optional[np.ndarray]:
     """
     Extract ORB keypoints and descriptors from frame
     """
     try:
         # Convert to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+        gray = (
+            cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+        )
 
         # Initialize ORB detector
         orb = cv2.ORB_create(nfeatures=100)
@@ -191,7 +209,10 @@ def extract_keypoint_features(frame: np.ndarray) -> Optional[np.ndarray]:
     except Exception:
         return None
 
-def compare_keypoint_features(features1: Optional[np.ndarray], features2: Optional[np.ndarray]) -> float:
+
+def compare_keypoint_features(
+    features1: Optional[np.ndarray], features2: Optional[np.ndarray]
+) -> float:
     """
     Compare keypoint features using Hamming distance
     """
@@ -210,7 +231,10 @@ def compare_keypoint_features(features1: Optional[np.ndarray], features2: Option
     except Exception:
         return 0.0
 
-def calculate_temporal_fingerprint(video_path: str, sample_count: int = 50) -> Optional[np.ndarray]:
+
+def calculate_temporal_fingerprint(
+    video_path: str, sample_count: int = 50
+) -> Optional[np.ndarray]:
     """
     Create temporal fingerprint based on brightness changes over time
     """
@@ -250,11 +274,13 @@ def calculate_temporal_fingerprint(video_path: str, sample_count: int = 50) -> O
         differences = np.diff(brightness_array)
 
         # Create features: mean, std, gradients
-        features = np.concatenate([
-            [np.mean(brightness_array), np.std(brightness_array)],
-            [np.mean(differences), np.std(differences)],
-            differences[:min(20, len(differences))]  # First 20 differences
-        ])
+        features = np.concatenate(
+            [
+                [np.mean(brightness_array), np.std(brightness_array)],
+                [np.mean(differences), np.std(differences)],
+                differences[: min(20, len(differences))],  # First 20 differences
+            ]
+        )
 
         return features
 
@@ -262,7 +288,10 @@ def calculate_temporal_fingerprint(video_path: str, sample_count: int = 50) -> O
         logger.warning(f"Could not create temporal fingerprint for {video_path}: {e}")
         return None
 
-def compare_temporal_fingerprints(fp1: Optional[np.ndarray], fp2: Optional[np.ndarray]) -> float:
+
+def compare_temporal_fingerprints(
+    fp1: Optional[np.ndarray], fp2: Optional[np.ndarray]
+) -> float:
     """
     Compare temporal fingerprints using correlation
     """
@@ -286,6 +315,7 @@ def compare_temporal_fingerprints(fp1: Optional[np.ndarray], fp2: Optional[np.nd
 
     except Exception:
         return 0.0
+
 
 def calculate_color_histogram(frame: np.ndarray) -> np.ndarray:
     """
@@ -497,13 +527,13 @@ def calculate_similarity_score(hash1_data, hash2_data, file1_size, file2_size):
 
     # Enhanced weighted average with new advanced methods
     weights = {
-        "hash": 0.25,           # Reduced from 0.4
-        "duration": 0.1,        # Reduced from 0.15
-        "size": 0.1,            # Reduced from 0.15
-        "fps": 0.05,            # Reduced from 0.1
-        "histogram": 0.15,      # Reduced from 0.2
-        "audio": 0.25,          # New - very important
-        "temporal": 0.1,        # New - temporal patterns
+        "hash": 0.25,  # Reduced from 0.4
+        "duration": 0.1,  # Reduced from 0.15
+        "size": 0.1,  # Reduced from 0.15
+        "fps": 0.05,  # Reduced from 0.1
+        "histogram": 0.15,  # Reduced from 0.2
+        "audio": 0.25,  # New - very important
+        "temporal": 0.1,  # New - temporal patterns
     }
 
     total_score = (
@@ -617,7 +647,7 @@ def find_video_duplicates(
             position=0,
             leave=True,
             ncols=100,
-            bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}'
+            bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
         ) as pbar:
             for future in as_completed(future_to_file):
                 file_path, result = future.result()
@@ -626,10 +656,14 @@ def find_video_duplicates(
                     # Show current file being processed
                     current_file = os.path.basename(file_path)
                     size_mb = convert_bytes_to_MB(result["size"])
-                    pbar.set_postfix_str(f"✅ {current_file[:25]}{'...' if len(current_file) > 25 else ''} ({size_mb:.1f}MB)")
+                    pbar.set_postfix_str(
+                        f"✅ {current_file[:25]}{'...' if len(current_file) > 25 else ''} ({size_mb:.1f}MB)"
+                    )
                 else:
                     current_file = os.path.basename(file_path)
-                    pbar.set_postfix_str(f"❌ Error: {current_file[:25]}{'...' if len(current_file) > 25 else ''}")
+                    pbar.set_postfix_str(
+                        f"❌ Error: {current_file[:25]}{'...' if len(current_file) > 25 else ''}"
+                    )
                 pbar.update(1)
                 pbar.refresh()  # Force refresh to show the postfix immediately
 
@@ -666,7 +700,7 @@ def find_video_duplicates(
         position=0,
         leave=True,
         ncols=100,
-        bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}'
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
     ) as pbar:
         for i, path1 in enumerate(video_paths):
             for j, path2 in enumerate(video_paths[i + 1 :], i + 1):
@@ -679,19 +713,25 @@ def find_video_duplicates(
                 ):
                     comparisons_skipped += 1
                     pbar.update(1)
-                    pbar.set_postfix_str(f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}")
+                    pbar.set_postfix_str(
+                        f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}"
+                    )
                     pbar.refresh()
                     continue
 
                 # Quick duration filter
                 duration1 = data1["hash_data"]["duration"]
                 duration2 = data2["hash_data"]["duration"]
-                duration_diff = abs(duration1 - duration2) / max(duration1, duration2, 1)
+                duration_diff = abs(duration1 - duration2) / max(
+                    duration1, duration2, 1
+                )
 
                 if duration_diff > 0.5:  # Skip if duration differs by more than 50%
                     comparisons_skipped += 1
                     pbar.update(1)
-                    pbar.set_postfix_str(f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}")
+                    pbar.set_postfix_str(
+                        f"⚡ Skipped: {comparisons_skipped} | Found: {len(duplicates)}"
+                    )
                     pbar.refresh()
                     continue
 
@@ -718,9 +758,13 @@ def find_video_duplicates(
                         }
                     )
                     # Show when duplicate is found
-                    pbar.set_postfix_str(f"🎯 Found: {len(duplicates)} duplicates | Analyzed: {comparisons_made}")
+                    pbar.set_postfix_str(
+                        f"🎯 Found: {len(duplicates)} duplicates | Analyzed: {comparisons_made}"
+                    )
                 else:
-                    pbar.set_postfix_str(f"🔍 Analyzed: {comparisons_made} | Found: {len(duplicates)}")
+                    pbar.set_postfix_str(
+                        f"🔍 Analyzed: {comparisons_made} | Found: {len(duplicates)}"
+                    )
 
                 pbar.update(1)
                 pbar.refresh()  # Force refresh to show the postfix immediately

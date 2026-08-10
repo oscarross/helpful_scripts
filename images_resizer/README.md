@@ -3,14 +3,14 @@
 This bash script resizes all images from folder `input_images` to `output_images` folder.
 
 ### Requirement
-* `imagemagick` 
+* `imagemagick`
 * `ImageOptim-CLI`
 * `ImageOptim.app`
 
 ### Installation:
 * **`imagemagick`**
 
-`brew install imagemagick` 
+`brew install imagemagick`
 
 * **`ImageOptim-CLI`**
 

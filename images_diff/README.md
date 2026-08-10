@@ -96,4 +96,3 @@ sudo apt-get install imagemagick ffmpeg
 # Linux (Fedora)
 sudo dnf install ImageMagick ffmpeg
 ```
-

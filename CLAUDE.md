@@ -12,17 +12,19 @@ Two directories (`ios_xcode_cleaner/`, `ios_unused_swift_files_variables/`) are 
 
 ## Commands
 
-Lint everything (ShellCheck for bash, ruff for python), matching what CI runs on every PR:
+Lint and format everything (ShellCheck + shfmt for bash, ruff for python, plus whitespace/EOF fixers), matching what CI runs on every PR:
 ```bash
 pip install pre-commit
 pre-commit install        # one-time, to run on every commit
 pre-commit run --all-files
 ```
 
-Run an individual linter directly:
+Run an individual tool directly:
 ```bash
 shellcheck --severity=warning path/to/script.sh
+shfmt -i 4 -w path/to/script.sh
 ruff check path/to/script.py
+ruff format path/to/script.py
 ```
 
 There is no test suite (see the `README.md` disclaimer: "The Scripts are not tested therefore use it on your own risk!"). Verify shell changes with `bash -n <script>` for syntax and a manual run; there is no automated way to exercise them.
@@ -44,6 +46,12 @@ Scripts generally follow this internal layout: `# Params` (default values as pla
 
 Lint baseline: ShellCheck is run at `--severity=warning` (not the stricter `style`/`info` levels) — see `.pre-commit-config.yaml`. When a script violates a warning-or-above check, fix the underlying issue (e.g. rewriting a fragile loop, quoting an expansion) rather than suppressing it; there is no repo-wide shellcheck exclusion file, so any real warning should get fixed at the source.
 
+Formatting is enforced by `shfmt -i 4` (4-space indent, `case` items aligned with `case`/`esac` rather than indented — matches the existing scripts, so don't add `-ci`).
+
 ## Conventions used by the python scripts
 
-`ruff.toml` pins the lint rule set explicitly (`select = ["E4", "E7", "E9", "F"]`, i.e. pyflakes + basic syntax/error checks) rather than relying on ruff's evolving default set — this is deliberate so lint results don't change silently across ruff versions. Extend this list intentionally rather than removing the pin.
+`ruff.toml` pins the lint rule set explicitly (`select = ["E4", "E7", "E9", "F"]`, i.e. pyflakes + basic syntax/error checks) rather than relying on ruff's evolving default set — this is deliberate so lint results don't change silently across ruff versions. Extend this list intentionally rather than removing the pin. Formatting is `ruff format` (Black-compatible).
+
+## Formatting
+
+`.editorconfig` plus pre-commit's `end-of-file-fixer`/`trailing-whitespace` hooks enforce LF line endings, a final newline, and no trailing whitespace across all files (Markdown is exempt from trailing-whitespace trimming since two trailing spaces are a line break there).

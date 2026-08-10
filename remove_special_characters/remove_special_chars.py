@@ -109,12 +109,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert filenames to snake_case format and remove special characters"
     )
-    parser.add_argument(
-        "input_dir", help="Input directory with files to process"
-    )
-    parser.add_argument(
-        "output_dir", help="Output directory for processed files"
-    )
+    parser.add_argument("input_dir", help="Input directory with files to process")
+    parser.add_argument("output_dir", help="Output directory for processed files")
 
     args = parser.parse_args()
 

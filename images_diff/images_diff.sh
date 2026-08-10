@@ -10,7 +10,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     FONT_PATH="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 else
-    FONT_PATH=""  # Will use ImageMagick default
+    FONT_PATH="" # Will use ImageMagick default
 fi
 
 # Params
@@ -240,7 +240,6 @@ else
     convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -font "$FONT_PATH" -fill black -annotate +0+2 "$DIFF_LABEL" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff_red_green.png"
 fi
 
-
 if [ -z "$FONT_PATH" ]; then
     convert "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" -pointsize 50 -gravity North -background Gold -splice 0x60 -fill black -annotate +0+2 "DIFF" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png"
 else
@@ -252,7 +251,7 @@ if ! $SKIP_MERGE; then
     # Get the original filenames for correct merge order
     FIRST_FILENAME="$(basename "$FIRST_FILE")"
     SECOND_FILENAME="$(basename "$SECOND_FILE")"
-    
+
     ./helpers/merge_images.sh -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
 else
     echo "⏭️  Skipping merge (use -m to disable)"
