@@ -14,6 +14,24 @@ NUMBER_OF_COLUMNS=4
 # Constants
 GENERATED_FILENAME='merged.png'
 
+# Resolve a font for ImageMagick (montage requires one even when no labels are used)
+_find_font() {
+    for candidate in \
+        /System/Library/Fonts/Helvetica.ttc \
+        /System/Library/Fonts/Arial.ttf \
+        /Library/Fonts/Arial.ttf \
+        /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
+        /usr/share/fonts/TTF/DejaVuSans.ttf; do
+        [[ -f "$candidate" ]] && {
+            echo "$candidate"
+            return
+        }
+    done
+    # fall back to whatever ImageMagick knows about
+    convert -list font 2>/dev/null | awk '/Font:/{print $2; exit}'
+}
+FONT="$(_find_font)"
+
 # Functions
 show_help() {
     cat <<EOF
@@ -93,11 +111,21 @@ if [ ! -d "$OUTPUT_FOLDER" ]; then
 fi
 
 OUTPUT_PATH="./$OUTPUT_FOLDER/$GENERATED_FILENAME"
-INPUT_FILES="./$INPUT_FOLDER/*"
+
+INPUT_FILES=()
+for f in "$INPUT_FOLDER"/*; do
+    [[ "$(basename "$f")" == .* ]] && continue
+    INPUT_FILES+=("$f")
+done
+
+if [[ ${#INPUT_FILES[@]} -eq 0 ]]; then
+    echo "❌ No images found in $INPUT_FOLDER"
+    exit 1
+fi
 
 echo "🔵 Start merging images"
-montage "$INPUT_FILES" -bordercolor "$BORDER_COLOR" -border "$BORDER_WIDTH" -tile "$NUMBER_OF_COLUMNS"x -geometry +0+0 "$OUTPUT_PATH"
-montage "$OUTPUT_PATH" -bordercolor "$BORDER_COLOR" -border "$BORDER_WIDTH" -geometry +0+0 "$OUTPUT_PATH"
+montage "${INPUT_FILES[@]}" -font "$FONT" -bordercolor "$BORDER_COLOR" -border "$BORDER_WIDTH" -tile "$NUMBER_OF_COLUMNS"x -geometry +0+0 "$OUTPUT_PATH"
+montage "$OUTPUT_PATH" -font "$FONT" -bordercolor "$BORDER_COLOR" -border "$BORDER_WIDTH" -geometry +0+0 "$OUTPUT_PATH"
 
 if [ $? -eq 0 ]; then
     echo "✅ Success: changed pictures are in the folder $OUTPUT_FOLDER"
