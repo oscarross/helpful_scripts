@@ -18,12 +18,20 @@ pip install pre-commit
 pre-commit install
 ```
 
+### Branch naming
+
+Branches should follow `<type>/<short-description>`, e.g.:
+* `feature/` - a new script or new functionality (e.g. `feature/heic-converter`)
+* `fix/` - a bug fix (e.g. `fix/images-merger-font`)
+* `docs/` - documentation-only changes (e.g. `docs/agent-files`)
+
 ## List of scripts in this repository:
 ### 🏞 Images
 * [Images diff](./images_diff) - script to generate diff from two image
 * [Images merger](./images_merger) - script to merge all images from input folder
 * [Images downloader](./images_downloader) - script to download boiler plate images
 * [Images resizer](./images_resizer) - script to resize images
+* [Images HEIC converter](./images_heic_converter) - script to convert HEIC/HEIF images to PNG or JPG
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif) - script to generate gif from video
