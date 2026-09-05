@@ -24,6 +24,7 @@ pre-commit install
 * [Images merger](./images_merger) - script to merge all images from input folder
 * [Images downloader](./images_downloader) - script to download boiler plate images
 * [Images resizer](./images_resizer) - script to resize images
+* [Images HEIC converter](./images_heic_converter) - script to convert HEIC/HEIF images to PNG or JPG
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif) - script to generate gif from video
