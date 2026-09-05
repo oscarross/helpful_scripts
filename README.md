@@ -18,6 +18,13 @@ pip install pre-commit
 pre-commit install
 ```
 
+### Branch naming
+
+Branches should follow `<type>/<short-description>`, e.g.:
+* `feature/` - a new script or new functionality (e.g. `feature/heic-converter`)
+* `fix/` - a bug fix (e.g. `fix/images-merger-font`)
+* `docs/` - documentation-only changes (e.g. `docs/agent-files`)
+
 ## List of scripts in this repository:
 ### 🏞 Images
 * [Images diff](./images_diff) - script to generate diff from two image
