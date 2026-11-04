@@ -31,7 +31,7 @@ It can be used in three ways:
 
 ### 🖥 **Terminal UI & easy setup**
 - **One-command setup**: `make install` creates a virtualenv and installs everything (uses [uv](https://docs.astral.sh/uv/) when available)
-- **Full-screen TUI**: settings form, live progress bar, sortable results table with file details
+- **Full-screen TUI**: settings form, live progress bar, results table with file details and a live scan log
 - **Act on results**: play either file, reveal it in Finder, move the unwanted copy to the Trash
 - **JSON export**: save results (with the keep suggestion) from the TUI (`e`) or CLI (`--json`)
 
@@ -72,7 +72,10 @@ Scan options can be overridden: `make scan DIR=~/Movies METHOD=combined THRESHOL
 | `r` | Reveal both files in Finder |
 | `d` | Move one file of the pair to the **Trash** (asks which; the one not suggested to keep is preselected) |
 | `e` | Export results to `video_duplicates_<date>.json` in the scanned folder |
+| `l` | Show / hide the scan log |
 | `q` | Quit |
+
+The **log panel** at the bottom shows the scan as it happens: every analyzed file (size, duration, fps, whether audio could be read), files that could not be opened and why, each duplicate pair found, pairs that are *similar but just below the threshold* (handy for tuning it), and a summary of how many pairs were compared or skipped. If no audio could be read from any file, it suggests installing `ffmpeg`.
 
 Files are moved to the system Trash (via `send2trash`), never deleted permanently.
 

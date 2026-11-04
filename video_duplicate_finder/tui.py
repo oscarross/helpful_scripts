@@ -9,6 +9,7 @@ Keys (results table):
     r       reveal both files in Finder / file manager
     d       move one file of the pair to Trash (asks which)
     e       export results to JSON
+    l       show / hide the scan log
 """
 
 import json
@@ -16,10 +17,12 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
+from rich.markup import escape
 from rich.text import Text
 from send2trash import send2trash
 from textual import on, work
@@ -35,9 +38,15 @@ from textual.widgets import (
     Input,
     Label,
     ProgressBar,
+    RichLog,
     Select,
     Static,
 )
+
+# Silence native OpenCV/FFmpeg messages (e.g. "moov atom not found") that would
+# be written straight to the terminal and corrupt the TUI screen
+os.environ.setdefault("OPENCV_LOG_LEVEL", "SILENT")
+os.environ.setdefault("OPENCV_FFMPEG_LOGLEVEL", "-8")
 
 print(
     "⏳ Loading OpenCV / librosa… (the first start after install can take a minute)",
@@ -45,9 +54,8 @@ print(
 )
 import video_duplicate_finder as vdf  # noqa: E402
 
-# Console log output would corrupt the TUI screen
+# Console log output would corrupt the TUI screen - logs go to the log panel
 logging.root.removeHandler(vdf.stream_handler)
-logging.root.addHandler(logging.NullHandler())
 
 METHOD_OPTIONS = [
     ("pHash (recommended)", "phash"),
@@ -71,6 +79,30 @@ def open_path(path: str, reveal: bool = False) -> None:
     else:
         cmd = ["xdg-open", os.path.dirname(path) if reveal else path]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+class TuiLogHandler(logging.Handler):
+    """Forward warnings/errors from the scanner (any thread) to the log panel"""
+
+    def __init__(self, app: "DuplicateFinderApp"):
+        super().__init__(level=logging.WARNING)
+        self.app = app
+
+    # Shown per file as "(no audio)" plus one hint at the end of the scan
+    MUTED_PREFIXES = ("Could not extract audio", "No audio data")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.getMessage().startswith(self.MUTED_PREFIXES):
+            return
+        style = "red" if record.levelno >= logging.ERROR else "yellow"
+        line = f"[{style}]⚠ {escape(record.getMessage())}[/{style}]"
+        if threading.get_ident() == self.app._thread_id:
+            self.app.log_line(line)
+        else:
+            try:
+                self.app.call_from_thread(self.app.log_line, line)
+            except RuntimeError:  # app not running (anymore)
+                pass
 
 
 def fmt_duration(seconds: float) -> str:
@@ -141,9 +173,11 @@ class DuplicateFinderApp(App):
     #phase { width: 1fr; }
     #progress { width: 50; }
     #summary { margin: 0 1; color: $text-muted; height: 1; }
-    #results { height: 1fr; margin: 0 1; }
+    #results { height: 1fr; min-height: 6; margin: 0 1; }
     #details { height: auto; max-height: 6; margin: 0 1; padding: 0 1;
                border: round $surface-lighten-2; }
+    #log { height: 1fr; min-height: 8; margin: 0 1; padding: 0 1;
+           border: round $surface-lighten-2; border-title-color: $text-muted; }
 
     TrashScreen { align: center middle; }
     #dialog { width: 90; max-width: 95%; height: auto; padding: 1 2;
@@ -161,6 +195,7 @@ class DuplicateFinderApp(App):
         Binding("r", "reveal", "Reveal"),
         Binding("d", "trash", "Trash…"),
         Binding("e", "export", "Export JSON"),
+        Binding("l", "toggle_log", "Log"),
         Binding("q", "quit", "Quit"),
     ]
 
@@ -171,6 +206,10 @@ class DuplicateFinderApp(App):
         self.trashed: Set[str] = set()
         self.scanning = False
         self._last_progress = 0.0
+        self.scan_dir = ""
+        self._analyzed = 0
+        self._without_audio = 0
+        self._log_handler = TuiLogHandler(self)
 
     # ---------- layout ----------
 
@@ -206,12 +245,19 @@ class DuplicateFinderApp(App):
         yield Label("", id="summary")
         yield DataTable(id="results", cursor_type="row", zebra_stripes=True)
         yield Static("", id="details")
+        log = RichLog(id="log", markup=True, wrap=True, max_lines=5000)
+        log.border_title = "Log (l to hide)"
+        yield log
         yield Footer()
 
     def on_mount(self) -> None:
         table = self.query_one("#results", DataTable)
         table.add_columns("#", "Similarity", "Keep", "File 1", "MB", "File 2", "MB")
         self.query_one("#details").display = False
+        logging.root.addHandler(self._log_handler)
+        self.log_line(
+            "[dim]Ready. Scan progress, analyzed files and similar pairs show up here.[/dim]"
+        )
         (
             self.query_one("#directory")
             if not self.initial_directory
@@ -260,6 +306,14 @@ class DuplicateFinderApp(App):
         self.query_one("#details").display = False
         self.duplicates = []
         self.trashed = set()
+        self.scan_dir = directory
+        self._analyzed = 0
+        self._without_audio = 0
+        self.query_one("#log", RichLog).clear()
+        self.log_line(
+            f"[b]▶ Scan[/b] {escape(directory)}  "
+            f"[dim]method={method} threshold={threshold} workers={workers}[/dim]"
+        )
         self.run_scan(directory, method, threshold, workers)
 
     @work(thread=True, exclusive=True)
@@ -274,7 +328,12 @@ class DuplicateFinderApp(App):
         started = time.monotonic()
         try:
             duplicates = vdf.find_video_duplicates(
-                directory, method, threshold, workers, progress=self._on_progress
+                directory,
+                method,
+                threshold,
+                workers,
+                progress=self._on_progress,
+                on_event=self._on_scan_event,
             )
         except Exception as e:  # pragma: no cover - shown to the user
             self.call_from_thread(self._scan_failed, str(e))
@@ -291,6 +350,58 @@ class DuplicateFinderApp(App):
         self._last_progress = now
         self.call_from_thread(self._update_progress, phase, done, total, message)
 
+    # ---------- log panel ----------
+
+    def log_line(self, markup: str) -> None:
+        stamp = datetime.now().strftime("%H:%M:%S")
+        self.query_one("#log", RichLog).write(f"[dim]{stamp}[/dim] {markup}")
+
+    def _rel(self, path: str) -> str:
+        try:
+            rel = os.path.relpath(path, self.scan_dir) if self.scan_dir else path
+        except ValueError:
+            rel = path
+        return escape(path if rel.startswith("..") else rel)
+
+    def _on_scan_event(self, kind: str, data: Dict) -> None:
+        # Called from the worker thread
+        line = None
+        if kind == "found":
+            line = f"📁 Found [b]{data['count']}[/b] video files"
+        elif kind == "analyzed":
+            self._analyzed += 1
+            self._without_audio += 0 if data["audio"] else 1
+            audio = "" if data["audio"] else " [yellow](no audio)[/yellow]"
+            line = (
+                f"[green]✔[/green] {self._rel(data['path'])} "
+                f"[dim]{data['size_mb']:.1f} MB · {fmt_duration(data['duration'])} · "
+                f"{data['fps']:.0f} fps[/dim]{audio}"
+            )
+        elif kind == "failed":
+            line = f"[red]✘ could not analyze[/red] {self._rel(data['path'])}"
+        elif kind == "duplicate":
+            line = (
+                f"[b magenta]🎯 duplicate {data['score']:.1%}[/b magenta] "
+                f"{self._rel(data['file1'])} [dim]↔[/dim] {self._rel(data['file2'])}"
+            )
+        elif kind == "near":
+            line = (
+                f"[cyan]≈ similar {data['score']:.1%}[/cyan] [dim](below threshold)[/dim] "
+                f"{self._rel(data['file1'])} [dim]↔[/dim] {self._rel(data['file2'])}"
+            )
+        elif kind == "compared":
+            line = (
+                f"📈 Compared [b]{data['made']}[/b] pairs in detail, "
+                f"skipped {data['skipped']} by size/duration → "
+                f"[b]{data['duplicates']}[/b] duplicates"
+            )
+        if line:
+            self.call_from_thread(self.log_line, line)
+
+    def action_toggle_log(self) -> None:
+        log = self.query_one("#log", RichLog)
+        log.display = not log.display
+
     def _update_progress(self, phase: str, done: int, total: int, message: str):
         label = PHASE_LABELS.get(phase, phase)
         self.query_one("#phase", Label).update(f"{label}  {message}")
@@ -302,6 +413,7 @@ class DuplicateFinderApp(App):
         self.scanning = False
         self.query_one("#scan", Button).disabled = False
         self.query_one("#phase", Label).update(f"❌ Scan failed: {error}")
+        self.log_line(f"[red]❌ Scan failed: {escape(error)}[/red]")
         self.notify(error, severity="error", title="Scan failed")
 
     def _scan_finished(self, duplicates: List[Dict], count: int, elapsed: float):
@@ -313,6 +425,20 @@ class DuplicateFinderApp(App):
             f"✅ Done in {fmt_duration(elapsed)} – analyzed {count} files"
         )
         self._fill_table()
+        self.log_line(
+            f"[b]✅ Done[/b] in {fmt_duration(elapsed)} – {count} files, "
+            f"[b]{len(duplicates)}[/b] duplicate pairs"
+        )
+        if self._analyzed and self._without_audio == self._analyzed:
+            self.log_line(
+                "[yellow]💡 No audio could be read from any file - audio fingerprinting "
+                "was skipped. Is ffmpeg installed? (brew install ffmpeg)[/yellow]"
+            )
+        elif self._without_audio:
+            self.log_line(
+                f"[dim]{self._without_audio} of {self._analyzed} files have no readable "
+                "audio track - compared on video only[/dim]"
+            )
         if duplicates:
             self.query_one("#results", DataTable).focus()
         else:
@@ -386,6 +512,8 @@ class DuplicateFinderApp(App):
 
     def check_action(self, action: str, parameters) -> Optional[bool]:
         # Result actions only make sense when the table has a selection
+        if action == "toggle_log":
+            return not isinstance(self.focused, Input)
         if action in ("open", "reveal", "trash", "export"):
             focused_on_input = isinstance(self.focused, Input)
             return bool(self.duplicates) and not focused_on_input
@@ -425,6 +553,7 @@ class DuplicateFinderApp(App):
                 self.notify(str(e), severity="error", title="Could not move to Trash")
                 return
             self.trashed.add(path)
+            self.log_line(f"🗑 Moved to Trash: {self._rel(path)}")
             self.notify(f"Moved to Trash:\n{os.path.basename(path)}")
             self._fill_table()
 
@@ -454,6 +583,7 @@ class DuplicateFinderApp(App):
             self.notify(str(e), severity="error", title="Export failed")
             return
         self.notify(f"Saved {path}", title="Exported")
+        self.log_line(f"📝 Exported results to {escape(path)}")
 
 
 if __name__ == "__main__":

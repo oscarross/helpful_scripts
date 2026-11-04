@@ -73,6 +73,18 @@ VIDEO_EXTENSIONS = (
 # progress(phase, done, total, message) - used by the TUI instead of tqdm
 ProgressCallback = Callable[[str, int, int, str], None]
 
+# on_event(kind, data) - structured scan log used by the TUI. Kinds:
+#   "found"     {count}
+#   "analyzed"  {path, size_mb, duration, fps, audio}
+#   "failed"    {path}
+#   "duplicate" {file1, file2, score}
+#   "near"      {file1, file2, score}  - similar, but below the threshold
+#   "compared"  {made, skipped, duplicates}
+EventCallback = Callable[[str, Dict], None]
+
+# Pairs scoring at most this much below the threshold are reported as "near"
+NEAR_MATCH_MARGIN = 0.1
+
 
 class _CallbackProgress:
     """Minimal tqdm-compatible object that forwards progress to a callback"""
@@ -663,6 +675,7 @@ def find_video_duplicates(
     similarity_threshold=0.85,
     max_workers=4,
     progress: Optional[ProgressCallback] = None,
+    on_event: Optional[EventCallback] = None,
 ):
     """
     Find video duplicates using advanced comparison methods with optimizations
@@ -674,6 +687,8 @@ def find_video_duplicates(
         max_workers: Number of threads for parallel processing
         progress: Optional callback(phase, done, total, message); when given,
             tqdm progress bars are replaced by calls to it (used by the TUI)
+        on_event: Optional callback(kind, data) receiving a structured log of
+            the scan (see EventCallback)
     """
     video_data = {}
     duplicates = []
@@ -681,14 +696,20 @@ def find_video_duplicates(
     # Collect all video files first
     video_files = collect_video_files(directory)
 
+    def emit(kind: str, **data) -> None:
+        if on_event is not None:
+            on_event(kind, data)
+
     logger.info(f"📁 Found {len(video_files)} video files to analyze")
+    emit("found", count=len(video_files))
 
     # Process videos in parallel with progress bar
     if progress is None:
         print("\n📊 Phase 1: Analyzing video content...")
 
     # Temporarily disable logging during progress bar
-    logging.getLogger().setLevel(logging.ERROR)
+    if progress is None:
+        logging.getLogger().setLevel(logging.ERROR)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all video processing tasks
@@ -713,6 +734,14 @@ def find_video_duplicates(
                 file_path, result = future.result()
                 if result is not None:
                     video_data[file_path] = result
+                    emit(
+                        "analyzed",
+                        path=file_path,
+                        size_mb=convert_bytes_to_MB(result["size"]),
+                        duration=result["hash_data"]["duration"],
+                        fps=result["hash_data"]["fps"],
+                        audio=result["hash_data"]["audio_fingerprint"] is not None,
+                    )
                     # Show current file being processed
                     current_file = os.path.basename(file_path)
                     size_mb = convert_bytes_to_MB(result["size"])
@@ -720,6 +749,7 @@ def find_video_duplicates(
                         f"✅ {current_file[:25]}{'...' if len(current_file) > 25 else ''} ({size_mb:.1f}MB)"
                     )
                 else:
+                    emit("failed", path=file_path)
                     current_file = os.path.basename(file_path)
                     pbar.set_postfix_str(
                         f"❌ Error: {current_file[:25]}{'...' if len(current_file) > 25 else ''}"
@@ -728,7 +758,8 @@ def find_video_duplicates(
                 pbar.refresh()  # Force refresh to show the postfix immediately
 
     # Re-enable logging
-    logging.getLogger().setLevel(logging.INFO)
+    if progress is None:
+        logging.getLogger().setLevel(logging.INFO)
 
     logger.info(f"✅ Successfully processed {len(video_data)} videos")
 
@@ -752,7 +783,8 @@ def find_video_duplicates(
     total_comparisons = len(video_paths) * (len(video_paths) - 1) // 2
 
     # Temporarily disable logging during progress bar
-    logging.getLogger().setLevel(logging.ERROR)
+    if progress is None:
+        logging.getLogger().setLevel(logging.ERROR)
 
     with _progress_bar(
         "compare",
@@ -809,6 +841,7 @@ def find_video_duplicates(
                 )
 
                 if is_duplicate:
+                    emit("duplicate", file1=path1, file2=path2, score=similarity_score)
                     duplicates.append(
                         {
                             "file1": path1,
@@ -825,6 +858,8 @@ def find_video_duplicates(
                         f"🎯 Found: {len(duplicates)} duplicates | Analyzed: {comparisons_made}"
                     )
                 else:
+                    if similarity_score >= similarity_threshold - NEAR_MATCH_MARGIN:
+                        emit("near", file1=path1, file2=path2, score=similarity_score)
                     pbar.set_postfix_str(
                         f"🔍 Analyzed: {comparisons_made} | Found: {len(duplicates)}"
                     )
@@ -833,10 +868,17 @@ def find_video_duplicates(
                 pbar.refresh()  # Force refresh to show the postfix immediately
 
     # Re-enable logging
-    logging.getLogger().setLevel(logging.INFO)
+    if progress is None:
+        logging.getLogger().setLevel(logging.INFO)
 
     logger.info(
         f"📈 Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
+    )
+    emit(
+        "compared",
+        made=comparisons_made,
+        skipped=comparisons_skipped,
+        duplicates=len(duplicates),
     )
     return duplicates
 
