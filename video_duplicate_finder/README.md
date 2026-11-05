@@ -2,7 +2,12 @@
 
 ## Overview
 
-An advanced Python tool that finds duplicate video files in a specified directory using multiple sophisticated comparison methods including perceptual hashing, color histogram analysis, and metadata comparison for highly accurate duplicate detection.
+An advanced Python tool that finds duplicate video files in a specified directory using multiple sophisticated comparison methods including perceptual hashing, color histogram analysis, audio and temporal fingerprints and metadata comparison for highly accurate duplicate detection.
+
+It can be used in three ways:
+- **Terminal UI** (`make tui`) - scan, browse results, play files and move duplicates to the Trash without leaving the terminal
+- **Command line** (`make scan DIR=...`) - non-interactive, scriptable, optional JSON output
+- **Interactive prompts** (`make run`) - the original question-and-answer mode
 
 ## Features
 
@@ -24,47 +29,88 @@ An advanced Python tool that finds duplicate video files in a specified director
 - **Error Handling**: Gracefully handles corrupted or unreadable video files
 - **Progress Logging**: Colored console output with detailed analysis progress
 
-## Requirements
+### 🖥 **Terminal UI & easy setup**
+- **One-command setup**: `make install` creates a virtualenv and installs everything (uses [uv](https://docs.astral.sh/uv/) when available)
+- **Full-screen TUI**: settings form, live progress bar, results table with file details and a live scan log
+- **Act on results**: play either file, reveal it in Finder, move the unwanted copy to the Trash
+- **JSON export**: save results (with the keep suggestion) from the TUI (`e`) or CLI (`--json`)
 
-Make sure you have Python 3.7+ installed on your system. Create a virtual environment and install the required packages:
+## Quick Start
+
+Requires Python 3.8+ and (optionally, for audio fingerprinting) `ffmpeg` (`brew install ffmpeg`).
 
 ```bash
-python -m venv .venv
+cd video_duplicate_finder
+make install          # creates .venv and installs requirements.txt (a few minutes the first time)
+make tui              # terminal UI
+```
+
+All `make` targets (`make help` lists them):
+
+| Command | What it does |
+| --- | --- |
+| `make install` | Create `.venv` and install dependencies (re-runs automatically when `requirements.txt` changes) |
+| `make tui [DIR=~/Movies]` | Launch the terminal UI, optionally with the directory pre-filled |
+| `make run` | Classic interactive CLI (asks for every option) |
+| `make scan DIR=~/Movies` | Non-interactive scan with defaults |
+| `make check` | Verify packages and `ffmpeg` |
+| `make reinstall` / `make clean` | Recreate / remove `.venv` |
+| `make lint` / `make format` | ruff, same rules as CI |
+
+`make install` uses `uv` if it is installed, otherwise `pip` (installing pip into the venv via `ensurepip` when it is missing). If `.venv` was created with a different Python version (e.g. after a Python upgrade), it is detected and recreated automatically.
+
+Scan options can be overridden: `make scan DIR=~/Movies METHOD=combined THRESHOLD=0.9 WORKERS=8 ARGS='--json dups.json'`.
+
+### Terminal UI
+
+`make tui` opens a full-screen UI: paste (or drag & drop) a folder into the directory field, pick a method and threshold, press **Scan** (`ctrl+s`). Results are listed sorted by similarity, the file suggested to keep is highlighted in green.
+
+| Key | Action |
+| --- | --- |
+| `↑` / `↓` | Select a duplicate pair (full paths shown below the table) |
+| `1` / `2` | Play file 1 / file 2 in the default player |
+| `r` | Reveal both files in Finder |
+| `d` | Move one file of the pair to the **Trash** (asks which; the one not suggested to keep is preselected) |
+| `e` | Export results to `video_duplicates_<date>.json` in the scanned folder |
+| `l` | Show / hide the scan log |
+| `q` | Quit |
+
+The **log panel** at the bottom shows the scan as it happens: every analyzed file (size, duration, fps, whether audio could be read), files that could not be opened and why, each duplicate pair found, pairs that are *similar but just below the threshold* (handy for tuning it), and a summary of how many pairs were compared or skipped. If no audio could be read from any file, it suggests installing `ffmpeg`.
+
+Files are moved to the system Trash (via `send2trash`), never deleted permanently.
+
+> The first start after installation can take up to a minute while OpenCV and librosa are loaded (on macOS the system also scans the freshly installed native libraries). Later starts are fast.
+
+### Command line
+
+```bash
+.venv/bin/python video_duplicate_finder.py                       # interactive
+.venv/bin/python video_duplicate_finder.py ~/Movies              # defaults, no prompts
+.venv/bin/python video_duplicate_finder.py ~/Movies -m combined -t 0.9 -w 8 --json dups.json
+.venv/bin/python video_duplicate_finder.py -h
+```
+
+### Manual setup (without make)
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+python tui.py
 ```
 
 ### Dependencies
 - **opencv-python**: Video processing and frame extraction
 - **imagehash**: Perceptual hashing algorithms
-- **Pillow**: Image processing
-- **numpy**: Numerical operations for histogram analysis
-
-## Usage
-
-### Quick Start
-
-1. Clone the repository or download the script files:
-```bash
-git clone <repository-url>
-cd video_duplicate_finder
-```
-
-2. Set up the environment:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-3. Run the script:
-```bash
-python video_duplicate_finder.py
-```
+- **Pillow**, **numpy**, **scikit-image**: Image processing and analysis
+- **librosa**, **soundfile**: Audio fingerprinting
+- **tqdm**: CLI progress bars
+- **textual**: Terminal UI
+- **send2trash**: Safe "move to Trash" from the TUI
 
 ### Interactive Configuration
 
-The script will prompt you for:
+When run without arguments (`make run`), the script will prompt you for:
 
 1. **Directory Path**: Enter the path to scan for video files
 2. **Hash Method Selection**:
@@ -128,6 +174,12 @@ The script will prompt you for:
 ## Troubleshooting
 
 ### Common Issues
+
+**`make install` fails with `No module named pip`**
+- The existing `.venv` was created without pip (e.g. by `uv`). Install `uv`, or run `make reinstall`.
+
+**`make tui` seems to hang right after start**
+- It is most likely still loading OpenCV/librosa - see the note above. If it hangs for several minutes, run `make reinstall` (a `.venv` mixing two Python versions can cause this).
 
 **"No module named cv2"**
 ```bash

@@ -1,8 +1,11 @@
+import argparse
+import json
 import logging
 import os
+import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import cv2
 import imagehash
@@ -48,6 +51,74 @@ stream_handler.setFormatter(formatter)
 logging.root.addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
+
+
+HASH_METHODS = {"1": "phash", "2": "dhash", "3": "average", "4": "combined"}
+
+VIDEO_EXTENSIONS = (
+    ".mp4",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".m4v",
+    ".wmv",
+    ".flv",
+    ".webm",
+    ".mts",
+    ".m2ts",
+    ".ogv",
+    ".3gp",
+)
+
+# progress(phase, done, total, message) - used by the TUI instead of tqdm
+ProgressCallback = Callable[[str, int, int, str], None]
+
+# on_event(kind, data) - structured scan log used by the TUI. Kinds:
+#   "found"     {count}
+#   "analyzed"  {path, size_mb, duration, fps, audio}
+#   "failed"    {path}
+#   "duplicate" {file1, file2, score}
+#   "near"      {file1, file2, score}  - similar, but below the threshold
+#   "compared"  {made, skipped, duplicates}
+EventCallback = Callable[[str, Dict], None]
+
+# Pairs scoring at most this much below the threshold are reported as "near"
+NEAR_MATCH_MARGIN = 0.1
+
+
+class _CallbackProgress:
+    """Minimal tqdm-compatible object that forwards progress to a callback"""
+
+    def __init__(self, phase: str, total: int, callback: ProgressCallback, **_):
+        self.phase = phase
+        self.total = total
+        self.n = 0
+        self.postfix = ""
+        self.callback = callback
+
+    def __enter__(self):
+        self.callback(self.phase, 0, self.total, "")
+        return self
+
+    def __exit__(self, *exc):
+        self.callback(self.phase, self.n, self.total, self.postfix)
+        return False
+
+    def update(self, n: int = 1):
+        self.n += n
+        self.callback(self.phase, self.n, self.total, self.postfix)
+
+    def set_postfix_str(self, text: str):
+        self.postfix = text
+
+    def refresh(self):
+        pass
+
+
+def _progress_bar(phase: str, total: int, callback: Optional[ProgressCallback], **kw):
+    if callback is not None:
+        return _CallbackProgress(phase, total, callback)
+    return tqdm(total=total, **kw)
 
 
 def quick_file_similarity_check(size1: int, size2: int, threshold: float = 0.1) -> bool:
@@ -585,8 +656,26 @@ def process_single_video(file_path: str, hash_method: str) -> tuple:
         return file_path, None
 
 
+def collect_video_files(directory: str) -> List[str]:
+    """Recursively collect all supported video files from a directory"""
+    video_files = []
+    for root, _dirs, files in os.walk(directory):
+        for file in files:
+            if file.startswith("._"):  # macOS resource-fork files
+                continue
+            file_path = os.path.join(root, file)
+            if file_path.lower().endswith(VIDEO_EXTENSIONS):
+                video_files.append(file_path)
+    return sorted(video_files)
+
+
 def find_video_duplicates(
-    directory, hash_method="phash", similarity_threshold=0.85, max_workers=4
+    directory,
+    hash_method="phash",
+    similarity_threshold=0.85,
+    max_workers=4,
+    progress: Optional[ProgressCallback] = None,
+    on_event: Optional[EventCallback] = None,
 ):
     """
     Find video duplicates using advanced comparison methods with optimizations
@@ -596,41 +685,31 @@ def find_video_duplicates(
         hash_method: Hash method to use ('phash', 'dhash', 'average', 'combined')
         similarity_threshold: Minimum similarity score to consider as duplicate
         max_workers: Number of threads for parallel processing
+        progress: Optional callback(phase, done, total, message); when given,
+            tqdm progress bars are replaced by calls to it (used by the TUI)
+        on_event: Optional callback(kind, data) receiving a structured log of
+            the scan (see EventCallback)
     """
     video_data = {}
     duplicates = []
 
-    # Supported video extensions
-    video_extensions = (
-        ".mp4",
-        ".avi",
-        ".mkv",
-        ".mov",
-        ".m4v",
-        ".wmv",
-        ".flv",
-        ".webm",
-        ".mts",
-        ".m2ts",
-        ".ogv",
-        ".3gp",
-    )
-
     # Collect all video files first
-    video_files = []
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.join(root, file)
-            if file_path.lower().endswith(video_extensions):
-                video_files.append(file_path)
+    video_files = collect_video_files(directory)
+
+    def emit(kind: str, **data) -> None:
+        if on_event is not None:
+            on_event(kind, data)
 
     logger.info(f"📁 Found {len(video_files)} video files to analyze")
+    emit("found", count=len(video_files))
 
     # Process videos in parallel with progress bar
-    print("\n📊 Phase 1: Analyzing video content...")
+    if progress is None:
+        print("\n📊 Phase 1: Analyzing video content...")
 
     # Temporarily disable logging during progress bar
-    logging.getLogger().setLevel(logging.ERROR)
+    if progress is None:
+        logging.getLogger().setLevel(logging.ERROR)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all video processing tasks
@@ -640,8 +719,10 @@ def find_video_duplicates(
         }
 
         # Collect results as they complete with progress bar
-        with tqdm(
-            total=len(video_files),
+        with _progress_bar(
+            "analyze",
+            len(video_files),
+            progress,
             desc="🎬 Processing videos",
             unit="files",
             position=0,
@@ -653,6 +734,14 @@ def find_video_duplicates(
                 file_path, result = future.result()
                 if result is not None:
                     video_data[file_path] = result
+                    emit(
+                        "analyzed",
+                        path=file_path,
+                        size_mb=convert_bytes_to_MB(result["size"]),
+                        duration=result["hash_data"]["duration"],
+                        fps=result["hash_data"]["fps"],
+                        audio=result["hash_data"]["audio_fingerprint"] is not None,
+                    )
                     # Show current file being processed
                     current_file = os.path.basename(file_path)
                     size_mb = convert_bytes_to_MB(result["size"])
@@ -660,6 +749,7 @@ def find_video_duplicates(
                         f"✅ {current_file[:25]}{'...' if len(current_file) > 25 else ''} ({size_mb:.1f}MB)"
                     )
                 else:
+                    emit("failed", path=file_path)
                     current_file = os.path.basename(file_path)
                     pbar.set_postfix_str(
                         f"❌ Error: {current_file[:25]}{'...' if len(current_file) > 25 else ''}"
@@ -668,11 +758,13 @@ def find_video_duplicates(
                 pbar.refresh()  # Force refresh to show the postfix immediately
 
     # Re-enable logging
-    logging.getLogger().setLevel(logging.INFO)
+    if progress is None:
+        logging.getLogger().setLevel(logging.INFO)
 
     logger.info(f"✅ Successfully processed {len(video_data)} videos")
 
-    print("\n🔍 Phase 2: Finding duplicate pairs...")
+    if progress is None:
+        print("\n🔍 Phase 2: Finding duplicate pairs...")
 
     # Group videos by size for faster initial filtering
     size_groups = {}
@@ -683,7 +775,7 @@ def find_video_duplicates(
         size_groups[size].append(file_path)
 
     # Only compare videos within similar size ranges
-    video_paths = list(video_data.keys())
+    video_paths = sorted(video_data.keys())
     comparisons_made = 0
     comparisons_skipped = 0
 
@@ -691,10 +783,13 @@ def find_video_duplicates(
     total_comparisons = len(video_paths) * (len(video_paths) - 1) // 2
 
     # Temporarily disable logging during progress bar
-    logging.getLogger().setLevel(logging.ERROR)
+    if progress is None:
+        logging.getLogger().setLevel(logging.ERROR)
 
-    with tqdm(
-        total=total_comparisons,
+    with _progress_bar(
+        "compare",
+        total_comparisons,
+        progress,
         desc="🔍 Comparing videos",
         unit="pairs",
         position=0,
@@ -746,6 +841,7 @@ def find_video_duplicates(
                 )
 
                 if is_duplicate:
+                    emit("duplicate", file1=path1, file2=path2, score=similarity_score)
                     duplicates.append(
                         {
                             "file1": path1,
@@ -762,6 +858,8 @@ def find_video_duplicates(
                         f"🎯 Found: {len(duplicates)} duplicates | Analyzed: {comparisons_made}"
                     )
                 else:
+                    if similarity_score >= similarity_threshold - NEAR_MATCH_MARGIN:
+                        emit("near", file1=path1, file2=path2, score=similarity_score)
                     pbar.set_postfix_str(
                         f"🔍 Analyzed: {comparisons_made} | Found: {len(duplicates)}"
                     )
@@ -770,16 +868,22 @@ def find_video_duplicates(
                 pbar.refresh()  # Force refresh to show the postfix immediately
 
     # Re-enable logging
-    logging.getLogger().setLevel(logging.INFO)
+    if progress is None:
+        logging.getLogger().setLevel(logging.INFO)
 
     logger.info(
         f"📈 Made {comparisons_made} detailed comparisons, skipped {comparisons_skipped} based on quick filters"
     )
+    emit(
+        "compared",
+        made=comparisons_made,
+        skipped=comparisons_skipped,
+        duplicates=len(duplicates),
+    )
     return duplicates
 
 
-if __name__ == "__main__":
-    hash_methods_info = """=== Video Duplicate Finder ===
+HASH_METHODS_INFO = """=== Video Duplicate Finder ===
 
 Available hash methods:
 ─────────────────────────────────────────────────────────────────────────────
@@ -808,7 +912,7 @@ Available hash methods:
     • Ideal for: comprehensive analysis, important collections
 ─────────────────────────────────────────────────────────────────────────────
 
-� ADVANCED FEATURES (Always Active):
+🧪 ADVANCED FEATURES (Always Active):
 • Audio Fingerprinting - Analyzes sound patterns for enhanced detection
 • SSIM Comparison - Superior image quality assessment vs basic hashes
 • Keypoint Detection - Robust against modifications, watermarks, crops
@@ -816,117 +920,212 @@ Available hash methods:
 
 💡 Tip: All methods now use advanced multi-modal analysis for maximum accuracy"""
 
-    print(hash_methods_info)
 
-    directory_to_scan = input(
-        "\nEnter the path to the directory with video files: "
-    ).strip()
+def suggest_keep(dup: Dict) -> Tuple[int, str]:
+    """
+    Suggest which file of a duplicate pair to keep.
+    Returns (1 or 2, reason); 0 means no clear preference.
+    """
+    size1_mb, size2_mb = dup["size1_mb"], dup["size2_mb"]
+    duration1, duration2 = dup["duration1"], dup["duration2"]
 
-    # Hash method selection
-    hash_choice = input("\nSelect hash method (1-4, default: 1): ").strip()
-    hash_methods = {"1": "phash", "2": "dhash", "3": "average", "4": "combined"}
-    hash_method = hash_methods.get(hash_choice, "phash")
+    file1_score = 0
+    file2_score = 0
 
-    # Similarity threshold
-    threshold_input = input("\nSimilarity threshold (0.0-1.0, default: 0.85): ").strip()
-    try:
-        threshold = float(threshold_input) if threshold_input else 0.85
-        threshold = max(0.0, min(1.0, threshold))
-    except ValueError:
-        threshold = 0.85
+    # Size factor (larger is usually better)
+    if size1_mb > size2_mb:
+        file1_score += 2
+    elif size2_mb > size1_mb:
+        file2_score += 2
 
-    # Performance settings
-    workers_input = input("\nNumber of parallel workers (1-8, default: 4): ").strip()
-    try:
-        max_workers = int(workers_input) if workers_input else 4
-        max_workers = max(1, min(8, max_workers))
-    except ValueError:
-        max_workers = 4
+    # Duration factor (longer might be uncut version)
+    if duration1 > duration2:
+        file1_score += 1
+    elif duration2 > duration1:
+        file2_score += 1
 
-    print(f"⚡ Hash method: {hash_method}")
+    # File extension preference (mp4 > mkv > mov > avi > wmv > others)
+    ext1 = dup["file1"].lower().split(".")[-1]
+    ext2 = dup["file2"].lower().split(".")[-1]
+    preferred_extensions = ["mp4", "mkv", "mov", "avi", "wmv"]
+    if ext1 in preferred_extensions and ext2 not in preferred_extensions:
+        file1_score += 1
+    elif ext2 in preferred_extensions and ext1 not in preferred_extensions:
+        file2_score += 1
+    elif ext1 in preferred_extensions and ext2 in preferred_extensions:
+        if preferred_extensions.index(ext1) < preferred_extensions.index(ext2):
+            file1_score += 1
+        elif preferred_extensions.index(ext2) < preferred_extensions.index(ext1):
+            file2_score += 1
+
+    if file1_score > file2_score:
+        return 1, "better quality/format"
+    if file2_score > file1_score:
+        return 2, "better quality/format"
+    if size1_mb > size2_mb:
+        return 1, "larger size"
+    if size2_mb > size1_mb:
+        return 2, "larger size"
+    return 0, "similar qualities"
+
+
+def print_report(duplicates: List[Dict]) -> None:
+    if not duplicates:
+        print("✅ No duplicates found!")
+        return
+
+    print(f"\n🔍 Found {len(duplicates)} duplicate pairs:")
+    print("=" * 80)
+
+    for i, dup in enumerate(duplicates, 1):
+        print(f"\n📹 Duplicate Pair #{i} (Similarity: {dup['similarity_score']:.2%})")
+        print(f"   File 1: {dup['file1']}")
+        print(
+            f"           Size: {dup['size1_mb']:.2f} MB, Duration: {dup['duration1']:.1f}s"
+        )
+        print(f"   File 2: {dup['file2']}")
+        print(
+            f"           Size: {dup['size2_mb']:.2f} MB, Duration: {dup['duration2']:.1f}s"
+        )
+
+        keep, reason = suggest_keep(dup)
+        if keep:
+            print(f"   💡 Suggestion: Keep File {keep} ({reason})")
+        else:
+            print("   💡 Files have similar qualities - choose based on preference")
+
+    print("\n" + "=" * 80)
+
+    # Calculate total space that could be saved
+    total_space_saved = sum(min(dup["size1_mb"], dup["size2_mb"]) for dup in duplicates)
+    print(f"💾 Potential space savings: {total_space_saved:.2f} MB")
+
+
+def save_json(duplicates: List[Dict], path: str) -> None:
+    out = []
+    for dup in duplicates:
+        keep, reason = suggest_keep(dup)
+        out.append({**dup, "suggested_keep": keep, "suggestion_reason": reason})
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2, ensure_ascii=False)
+    print(f"📝 Results saved to {path}")
+
+
+def clean_path(raw: str) -> str:
+    """Normalize a path pasted/dragged into a terminal (quotes, escaped spaces, ~)"""
+    path = raw.strip()
+    if len(path) >= 2 and path[0] == path[-1] and path[0] in "'\"":
+        path = path[1:-1]
+    path = path.replace("\\ ", " ")
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def ask_interactive(args: argparse.Namespace) -> argparse.Namespace:
+    """Prompt for every option that was not passed on the command line"""
+    print(HASH_METHODS_INFO)
+
+    if args.directory is None:
+        args.directory = input(
+            "\nEnter the path to the directory with video files: "
+        ).strip()
+
+    if args.method is None:
+        hash_choice = input("\nSelect hash method (1-4, default: 1): ").strip()
+        args.method = HASH_METHODS.get(hash_choice, "phash")
+
+    if args.threshold is None:
+        threshold_input = input(
+            "\nSimilarity threshold (0.0-1.0, default: 0.85): "
+        ).strip()
+        try:
+            args.threshold = float(threshold_input) if threshold_input else 0.85
+        except ValueError:
+            args.threshold = 0.85
+
+    if args.workers is None:
+        workers_input = input(
+            "\nNumber of parallel workers (1-8, default: 4): "
+        ).strip()
+        try:
+            args.workers = int(workers_input) if workers_input else 4
+        except ValueError:
+            args.workers = 4
+
+    return args
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Find duplicate video files using perceptual hashing, "
+        "audio and temporal fingerprints.",
+        epilog="Run without arguments for interactive mode, or use tui.py "
+        "(make tui) for the terminal UI.",
+    )
+    parser.add_argument("directory", nargs="?", help="directory to scan")
+    parser.add_argument(
+        "-m",
+        "--method",
+        choices=sorted(set(HASH_METHODS.values())),
+        help="hash method (default: phash)",
+    )
+    parser.add_argument(
+        "-t",
+        "--threshold",
+        type=float,
+        help="similarity threshold 0.0-1.0 (default: 0.85)",
+    )
+    parser.add_argument(
+        "-w", "--workers", type=int, help="parallel workers 1-8 (default: 4)"
+    )
+    parser.add_argument("--json", metavar="FILE", help="also save results as JSON")
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="never prompt; use defaults for missing options",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = parse_args(argv)
+
+    if args.yes or args.directory is not None:
+        if args.directory is None:
+            print("❌ Directory is required with --yes", file=sys.stderr)
+            return 2
+        args.method = args.method or "phash"
+        args.threshold = 0.85 if args.threshold is None else args.threshold
+        args.workers = args.workers or 4
+    else:
+        args = ask_interactive(args)
+
+    directory = clean_path(args.directory)
+    if not os.path.isdir(directory):
+        print(f"❌ Not a directory: {directory}", file=sys.stderr)
+        return 2
+
+    threshold = max(0.0, min(1.0, args.threshold))
+    max_workers = max(1, min(8, args.workers))
+
+    print(f"📂 Directory: {directory}")
+    print(f"⚡ Hash method: {args.method}")
     print(f"🎯 Similarity threshold: {threshold}")
     print(f"🔧 Parallel workers: {max_workers}")
     print("🚀 Starting duplicate detection...\n")
 
-    duplicates = find_video_duplicates(
-        directory_to_scan, hash_method, threshold, max_workers
-    )
+    duplicates = find_video_duplicates(directory, args.method, threshold, max_workers)
+    print_report(duplicates)
 
-    if duplicates:
-        print(f"\n🔍 Found {len(duplicates)} duplicate pairs:")
-        print("=" * 80)
+    if args.json:
+        save_json(duplicates, args.json)
 
-        for i, dup in enumerate(duplicates, 1):
-            print(
-                f"\n📹 Duplicate Pair #{i} (Similarity: {dup['similarity_score']:.2%})"
-            )
-            print(f"   File 1: {dup['file1']}")
-            print(
-                f"           Size: {dup['size1_mb']:.2f} MB, Duration: {dup['duration1']:.1f}s"
-            )
-            print(f"   File 2: {dup['file2']}")
-            print(
-                f"           Size: {dup['size2_mb']:.2f} MB, Duration: {dup['duration2']:.1f}s"
-            )
+    return 0
 
-            # Enhanced suggestions based on multiple factors
-            size1_mb = dup["size1_mb"]
-            size2_mb = dup["size2_mb"]
-            duration1 = dup["duration1"]
-            duration2 = dup["duration2"]
 
-            # Determine better file based on multiple criteria
-            file1_score = 0
-            file2_score = 0
-
-            # Size factor (larger is usually better)
-            if size1_mb > size2_mb:
-                file1_score += 2
-            elif size2_mb > size1_mb:
-                file2_score += 2
-
-            # Duration factor (longer might be uncut version)
-            if duration1 > duration2:
-                file1_score += 1
-            elif duration2 > duration1:
-                file2_score += 1
-
-            # File extension preference (mp4 > avi > others)
-            ext1 = dup["file1"].lower().split(".")[-1]
-            ext2 = dup["file2"].lower().split(".")[-1]
-
-            preferred_extensions = ["mp4", "mkv", "mov", "avi", "wmv"]
-            if ext1 in preferred_extensions and ext2 not in preferred_extensions:
-                file1_score += 1
-            elif ext2 in preferred_extensions and ext1 not in preferred_extensions:
-                file2_score += 1
-            elif ext1 in preferred_extensions and ext2 in preferred_extensions:
-                if preferred_extensions.index(ext1) < preferred_extensions.index(ext2):
-                    file1_score += 1
-                elif preferred_extensions.index(ext2) < preferred_extensions.index(
-                    ext1
-                ):
-                    file2_score += 1
-
-            # Suggest which file to keep
-            if file1_score > file2_score:
-                print("   💡 Suggestion: Keep File 1 (better quality/format)")
-            elif file2_score > file1_score:
-                print("   💡 Suggestion: Keep File 2 (better quality/format)")
-            elif size1_mb > size2_mb:
-                print("   💡 Suggestion: Keep File 1 (larger size)")
-            elif size2_mb > size1_mb:
-                print("   💡 Suggestion: Keep File 2 (larger size)")
-            else:
-                print("   💡 Files have similar qualities - choose based on preference")
-
-        print("\n" + "=" * 80)
-
-        # Calculate total space that could be saved
-        total_space_saved = sum(
-            min(dup["size1_mb"], dup["size2_mb"]) for dup in duplicates
-        )
-        print(f"💾 Potential space savings: {total_space_saved:.2f} MB")
-
-    else:
-        print("✅ No duplicates found!")
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n⛔ Interrupted")
+        sys.exit(130)

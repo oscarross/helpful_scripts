@@ -35,7 +35,7 @@ Branches should follow `<type>/<short-description>`, e.g.:
 
 ### 🎥 Video
 * [Video to gif](./video_to_gif) - script to generate gif from video
-* [Video duplicate finder](./video_duplicate_finder) - script to find duplicate video files using perceptual hashing
+* [Video duplicate finder](./video_duplicate_finder) - script to find duplicate video files using perceptual hashing, with a terminal UI (`make tui`) and one-command setup (`make install`)
 
 ### 📱 iOS
 * [iOS record simulator](./ios_record_simulator) - script to automate recording from iOS simulator
