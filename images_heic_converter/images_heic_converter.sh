@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve paths relative to this script so it works from any directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 # HEIC decoding needs the libheif delegate (bundled with imagemagick via
@@ -18,7 +21,9 @@ show_help() {
 Usage: $0 [options]
 EXAMPLE:
     $0 -f jpg -q 85
+    $0 --tui
 OPTIONS:
+   --tui        Interactive mode (asks for every option)
    -i           Input folder
    -o           Output folder
    -f           Output format: png or jpg
@@ -53,6 +58,32 @@ QUALITY="$QUALITY"
 ============================
 EOF
 }
+
+run_tui() {
+    local format
+    tui_header "Images HEIC converter" "Converts HEIC/HEIF images to PNG or JPG"
+    tui_add_arg -i "$(tui_input "Input folder" "$INPUT_FOLDER")"
+    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
+    format="$(tui_choose "Output format" png jpg)"
+    tui_add_arg -f "$format"
+    if [[ "$format" == "jpg" ]]; then
+        tui_add_arg -q "$(tui_input_number "JPG quality 1-100" "$QUALITY")"
+    fi
+    tui_confirm_run "$0"
+}
+
+# Interactive mode: ask for the options, then parse them like regular flags
+if [[ "${1:-}" == "--tui" ]]; then
+    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
+    if [[ ! -f "$TUI_HELPER" ]]; then
+        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
+        exit 1
+    fi
+    # shellcheck source=../tui_helper/tui.sh
+    source "$TUI_HELPER"
+    run_tui
+    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+fi
 
 # Get params
 while getopts "hi:o:f:q:" opt; do

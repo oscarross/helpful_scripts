@@ -1,6 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve paths relative to this script (following symlinks, e.g. the copy
+# linked from ios_record_simulator/helpers) so it works from any directory
+SCRIPT_PATH="$0"
+while [ -L "$SCRIPT_PATH" ]; do
+    LINK_TARGET="$(readlink "$SCRIPT_PATH")"
+    case "$LINK_TARGET" in
+    /*) SCRIPT_PATH="$LINK_TARGET" ;;
+    *) SCRIPT_PATH="$(dirname "$SCRIPT_PATH")/$LINK_TARGET" ;;
+    esac
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
 # Required to install
 # https://formulae.brew.sh/formula/ffmpeg
 
@@ -16,7 +28,9 @@ show_help() {
 Usage: $0 [options]
 EXAMPLE:
     $0 -f 15
+    $0 --tui
 OPTIONS:
+   --tui        Interactive mode (asks for every option)
    -f           number of FPS
    -i           Input folder
    -o           Output folder
@@ -54,6 +68,27 @@ generate_gif_from_palette() {
     echo "🔵 Generating gif for $1"
     ffmpeg -hide_banner -loglevel error -i "$1" -i $INPUT_FOLDER/$PALETTE_FILENAME -filter_complex "fps=$FPS,scale=-1:800:flags=lanczos[x];[x][1:v]paletteuse" -r "$FPS" "$2"
 }
+
+run_tui() {
+    tui_header "Video to gif" "Converts every .mov/.mp4 from the input folder to a gif"
+    tui_add_arg -i "$(tui_input "Input folder" "$INPUT_FOLDER")"
+    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
+    tui_add_arg -f "$(tui_input_number "FPS" "$FPS")"
+    tui_confirm_run "$0"
+}
+
+# Interactive mode: ask for the options, then parse them like regular flags
+if [[ "${1:-}" == "--tui" ]]; then
+    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
+    if [[ ! -f "$TUI_HELPER" ]]; then
+        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
+        exit 1
+    fi
+    # shellcheck source=../tui_helper/tui.sh
+    source "$TUI_HELPER"
+    run_tui
+    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+fi
 
 # Get params
 while getopts "hf:i:o:" opt; do

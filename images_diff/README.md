@@ -28,6 +28,13 @@ Script to generate visual diffs from two images with support for labels, custom 
 |**m**|Skip merge generation|disabled|No|
 |**h**|Show help|-|No|
 
+### Interactive mode
+Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it. Prompts use [gum](https://github.com/charmbracelet/gum) when it is installed (`brew install gum`) and plain terminal prompts otherwise.
+
+`./images_diff.sh --tui`
+
+You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+
 ### Examples
 
 **Basic usage**

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve paths relative to this script so it works from any directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 
@@ -38,7 +41,9 @@ show_help() {
 Usage: $0 [options]
 EXAMPLE:
     $0 -c '#323a47' -b 10 -n 2
+    $0 --tui
 OPTIONS:
+   --tui        Interactive mode (asks for every option)
    -w           Border width
    -c           Border color
    -n           Number of columns
@@ -71,6 +76,29 @@ OUTPUT_FOLDER="$OUTPUT_FOLDER"
 ============================
 EOF
 }
+
+run_tui() {
+    tui_header "Images merger" "Merges all images from the input folder into one grid"
+    tui_add_arg -i "$(tui_input "Input folder" "$INPUT_FOLDER")"
+    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
+    tui_add_arg -n "$(tui_input_number "Number of columns" "$NUMBER_OF_COLUMNS")"
+    tui_add_arg -w "$(tui_input_number "Border width" "$BORDER_WIDTH")"
+    tui_add_arg -c "$(tui_input "Border color" "$BORDER_COLOR")"
+    tui_confirm_run "$0"
+}
+
+# Interactive mode: ask for the options, then parse them like regular flags
+if [[ "${1:-}" == "--tui" ]]; then
+    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
+    if [[ ! -f "$TUI_HELPER" ]]; then
+        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
+        exit 1
+    fi
+    # shellcheck source=../tui_helper/tui.sh
+    source "$TUI_HELPER"
+    run_tui
+    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+fi
 
 # Get params
 while getopts "hw:c:n:i:o:" opt; do

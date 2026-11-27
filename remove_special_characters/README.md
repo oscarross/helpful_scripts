@@ -10,6 +10,13 @@ Script to convert filenames to `snake_case` format and remove special characters
 - Preserves file extensions
 - Maintains directory structure
 
+## Interactive mode
+Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it.
+
+`python3 remove_special_chars.py --tui`
+
+You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+
 ## Usage
 
 ```bash

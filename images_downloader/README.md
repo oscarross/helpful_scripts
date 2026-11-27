@@ -9,6 +9,13 @@ This bash script downloads images from [https://picsum.photos](https://picsum.ph
 |**ht**|Image height|300|
 |**n**|Number of images to download|required, no default|
 
+### Interactive mode
+Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it.
+
+`./image_downloader.py --tui`
+
+You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+
 ### Examples
 With default width/height
 

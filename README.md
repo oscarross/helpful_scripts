@@ -10,6 +10,15 @@ This repository contains git submodules. After cloning, run:
 git submodule update --init --recursive
 ```
 
+## Interactive mode (TUI)
+
+Start the main launcher to pick a script from a menu:
+```bash
+./helpful_scripts.sh
+```
+
+Every script can also be started on its own with `--tui` to be asked for its options, e.g. `./images_merger/images_merger.sh --tui`. The existing flags work as before. Prompts use [gum](https://github.com/charmbracelet/gum) when it is installed (`brew install gum`) and plain terminal prompts otherwise. See [tui_helper](./tui_helper).
+
 ## Development
 
 This repo lints shell scripts with [ShellCheck](https://www.shellcheck.net/) and Python scripts with [ruff](https://docs.astral.sh/ruff/), run via [pre-commit](https://pre-commit.com/) and checked in CI on every PR. To run them locally before committing:
