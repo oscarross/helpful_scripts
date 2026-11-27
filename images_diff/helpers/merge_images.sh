@@ -12,6 +12,25 @@ INPUT_FOLDER=""
 OUTPUT_FOLDER=""
 FILE_LIST=()
 
+# Resolve a font for ImageMagick (montage requires one even when no labels are used)
+# Kept in sync with _find_font() in images_merger/images_merger.sh
+_find_font() {
+    for candidate in \
+        /System/Library/Fonts/Helvetica.ttc \
+        /System/Library/Fonts/Arial.ttf \
+        /Library/Fonts/Arial.ttf \
+        /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
+        /usr/share/fonts/TTF/DejaVuSans.ttf; do
+        [[ -f "$candidate" ]] && {
+            echo "$candidate"
+            return
+        }
+    done
+    # fall back to whatever ImageMagick knows about
+    convert -list font 2>/dev/null | awk '/Font:/{print $2; exit}'
+}
+FONT="$(_find_font)"
+
 show_help() {
     cat <<EOF
 Usage: $0 [options]
@@ -89,17 +108,19 @@ fi
 if [ ${#FILE_LIST[@]} -eq 0 ]; then
     # If no files specified, use all PNG files (sorted)
     montage "$INPUT_FOLDER"/*.png \
+        -font "$FONT" \
         -tile "${NUMBER_OF_COLUMNS}x" \
         -geometry +${BORDER_WIDTH}+${BORDER_WIDTH} \
         -background "$BORDER_COLOR" \
-        "$OUTPUT_FOLDER/merged.png" 2>/dev/null
+        "$OUTPUT_FOLDER/merged.png"
 else
     # Use specified files in order
     montage "${FILE_LIST[@]}" \
+        -font "$FONT" \
         -tile "${NUMBER_OF_COLUMNS}x" \
         -geometry +${BORDER_WIDTH}+${BORDER_WIDTH} \
         -background "$BORDER_COLOR" \
-        "$OUTPUT_FOLDER/merged.png" 2>/dev/null
+        "$OUTPUT_FOLDER/merged.png"
 fi
 
 if [ -f "$OUTPUT_FOLDER/merged.png" ]; then

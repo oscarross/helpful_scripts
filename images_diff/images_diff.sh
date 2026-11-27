@@ -88,7 +88,6 @@ BORDER_WIDTH="$BORDER_WIDTH"
 BORDER_COLOR="$BORDER_COLOR"
 FIRST_TITLE="$FIRST_TITLE"
 SECOND_TITLE="$SECOND_TITLE"
-INPUT_FOLDER="$INPUT_FOLDER"
 OUTPUT_PATH="$OUTPUT_PATH"
 ============================
 EOF
@@ -221,7 +220,8 @@ echo "✅ Titles added successfully"
 
 echo "🔵 Start generating diffs"
 
-compare "$FIRST_FILE" "$SECOND_FILE" -quiet -metric AE -fuzz 5% -highlight-color red "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" >&- 2>&-
+# compare exits 1 when the images differ (expected here) and 2 on a real error
+compare "$FIRST_FILE" "$SECOND_FILE" -quiet -metric AE -fuzz 5% -highlight-color red "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" >&- 2>&- || [[ $? -eq 1 ]]
 
 convert '(' "$FIRST_FILE" -flatten -grayscale Rec709Luminance ')' \
     '(' "$SECOND_FILE" -flatten -grayscale Rec709Luminance ')' \
@@ -268,7 +268,7 @@ if ! $SKIP_GIF; then
         FILENAME="$(basename "$FILE_PATH")"
         cp "$FILE_PATH" "$GIF_TEMP_DIR"
         mv "$GIF_TEMP_DIR/$FILENAME" "$GIF_TEMP_DIR/image$COPY_INDEX.png"
-        ((COPY_INDEX++))
+        COPY_INDEX=$((COPY_INDEX + 1))
     done
 
     FPS=30
