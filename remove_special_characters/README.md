@@ -11,11 +11,11 @@ Script to convert filenames to `snake_case` format and remove special characters
 - Maintains directory structure
 
 ## Interactive mode
-Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it.
+Run with `--tui` to open the terminal UI of this repo on this script: edit the options in a form, see the resulting command and run it with a live log. The flags above keep working as before.
 
 `python3 remove_special_chars.py --tui`
 
-You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+You can also pick this script from the full list with `./helpful_scripts_tui.py` in the repo root.
 
 ## Usage
 

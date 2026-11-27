@@ -33,43 +33,12 @@ def download_image(index: int, width: int, height: int) -> None:
         output.write(image_data)
 
 
-def ask(prompt: str, default: str = "") -> str:
-    """Ask for a value in the terminal, returning the default on empty input."""
-    suffix = f" [{default}]" if default else ""
-    try:
-        answer = input(f"{prompt}{suffix}: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        print("\nCancelled")
-        sys.exit(130)
-    return answer or default
-
-
-def ask_int(prompt: str, default: str = "") -> str:
-    """Ask until the answer is a positive whole number."""
-    while True:
-        answer = ask(prompt, default)
-        if answer.isdigit() and int(answer) > 0:
-            return answer
-        print("⚠️  Please enter a whole number greater than 0")
-
-
-def tui_args() -> list[str]:
-    """Interactive mode: ask for every option and return them as CLI flags."""
-    print("\n=== Images downloader ===")
-    print("Downloads random images from picsum.photos into ./output_images\n")
-    args = [
-        "-n",
-        ask_int("Number of images"),
-        "-w",
-        ask_int("Image width", "300"),
-        "-ht",
-        ask_int("Image height", "300"),
-    ]
-    print(f"\nCommand:\n  {sys.argv[0]} {' '.join(args)}\n")
-    if ask("Run it? [Y/n]").lower().startswith("n"):
-        print("Cancelled")
-        sys.exit(0)
-    return args
+def open_tui() -> None:
+    """Interactive mode: open the terminal UI of this repo on this script."""
+    tui = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "..", "helpful_scripts_tui.py"
+    )
+    os.execv(sys.executable, [sys.executable, tui, "--script", "images_downloader"])
 
 
 def main() -> None:
@@ -108,13 +77,12 @@ def main() -> None:
     parser.add_argument(
         "--tui",
         action="store_true",
-        help="Interactive mode (asks for every option)",
+        help="Open the terminal UI on this script",
     )
 
-    argv = sys.argv[1:]
-    if argv[:1] == ["--tui"]:
-        argv = tui_args()
-    args = parser.parse_args(argv)
+    if sys.argv[1:2] == ["--tui"]:
+        open_tui()
+    args = parser.parse_args()
 
     print(f"width: {args.width}")
     print(f"height: {args.height}")

@@ -18,7 +18,7 @@ EXAMPLE:
     $0 -f 15
     $0 --tui
 OPTIONS:
-   --tui        Interactive mode (asks for every option)
+   --tui        Open the terminal UI on this script
    -f           number of FPS
    -o           Output folder
 EOF
@@ -35,24 +35,9 @@ OUTPUT_FOLDER="$OUTPUT_FOLDER"
 EOF
 }
 
-run_tui() {
-    tui_header "iOS record simulator" "Records the booted simulator and turns the video into a gif"
-    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
-    tui_add_arg -f "$(tui_input_number "FPS" "$FPS")"
-    tui_confirm_run "$0"
-}
-
-# Interactive mode: ask for the options, then parse them like regular flags
+# Interactive mode: open the terminal UI of this repo on this script
 if [[ "${1:-}" == "--tui" ]]; then
-    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
-    if [[ ! -f "$TUI_HELPER" ]]; then
-        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
-        exit 1
-    fi
-    # shellcheck source=../tui_helper/tui.sh
-    source "$TUI_HELPER"
-    run_tui
-    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+    exec python3 "$SCRIPT_DIR/../helpful_scripts_tui.py" --script ios_record_simulator
 fi
 
 # Get params

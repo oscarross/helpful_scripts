@@ -24,11 +24,11 @@ This bash script converts all HEIC/HEIF images (e.g. photos from an iPhone) from
 |**h**|Help|-|
 
 ### Interactive mode
-Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it. Prompts use [gum](https://github.com/charmbracelet/gum) when it is installed (`brew install gum`) and plain terminal prompts otherwise.
+Run with `--tui` to open the terminal UI of this repo on this script: edit the options in a form, see the resulting command and run it with a live log. The flags above keep working as before.
 
 `./images_heic_converter.sh --tui`
 
-You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+You can also pick this script from the full list with `./helpful_scripts_tui.py` in the repo root.
 
 ### Examples
 With default parameters (HEIC → PNG)
