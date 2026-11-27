@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Resolve paths relative to this script so it works from any directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 
@@ -252,7 +255,7 @@ if ! $SKIP_MERGE; then
     FIRST_FILENAME="$(basename "$FIRST_FILE")"
     SECOND_FILENAME="$(basename "$SECOND_FILE")"
 
-    ./helpers/merge_images.sh -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
+    "$SCRIPT_DIR/helpers/merge_images.sh" -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
 else
     echo "⏭️  Skipping merge (use -m to disable)"
 fi
