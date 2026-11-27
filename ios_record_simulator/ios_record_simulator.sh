@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve paths relative to this script so it works from any directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Params
 VIDEONAME="video.mp4"
 OUTPUT_FOLDER='./gifs'
@@ -82,6 +85,6 @@ echo "Press 'ctrl' + 'c' to stop recording"
 xcrun simctl io booted recordVideo --type=mp4 "$VIDEOS_FOLDER/$VIDEONAME"
 
 echo
-./helpers/video_to_gif.sh -i "$VIDEOS_FOLDER" -o "$OUTPUT_FOLDER" -f "$FPS"
+"$SCRIPT_DIR/helpers/video_to_gif.sh" -i "$VIDEOS_FOLDER" -o "$OUTPUT_FOLDER" -f "$FPS"
 
 exit 0
