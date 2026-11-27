@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-This is a **flat collection of independent, standalone scripts** — there is no shared library, build system, or entrypoint. Each top-level directory is one script (mostly `bash`, a couple of `python3`) with its own `README.md` documenting parameters and examples. Changes to one script's directory essentially never require touching another's; treat each directory as its own small project.
+This is a **flat collection of independent, standalone scripts** — there is no shared library, build system, or entrypoint. Each top-level directory is one script (mostly `bash`) with its own `README.md` documenting parameters and examples. Three directories are `python3`: `images_downloader/` and `remove_special_characters/` are single files, while `video_duplicate_finder/` has two (`video_duplicate_finder.py` plus a terminal UI in `tui.py`) along with its own `Makefile` and `requirements.txt`. Changes to one script's directory essentially never require touching another's; treat each directory as its own small project.
 
 Two directories (`ios_xcode_cleaner/`, `ios_unused_swift_files_variables/`) are **git submodules** pointing at third-party repos — do not edit files inside them. After cloning, run `git submodule update --init --recursive` to populate them.
 
