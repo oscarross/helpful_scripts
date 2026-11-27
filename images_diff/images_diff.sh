@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Resolve paths relative to this script so it works from any directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Required to install
 # https://formulae.brew.sh/formula/imagemagick
 
@@ -23,15 +26,20 @@ SECOND_TITLE=""
 ADD_LABELS_OLD_NEW=false
 SKIP_GIF=false
 SKIP_MERGE=false
+CROP_TOP=0
 
 OUTPUT_PATH='./output_images'
 OUTPUT_FOLDER='GENERATED'
 GIF_TEMP_DIR="./gif_temp"
+CROP_TEMP_DIR=""
 
 # Cleanup function
 cleanup() {
     if [ -d "$GIF_TEMP_DIR" ]; then
         rm -rf "$GIF_TEMP_DIR"
+    fi
+    if [ -n "$CROP_TEMP_DIR" ] && [ -d "$CROP_TEMP_DIR" ]; then
+        rm -rf "$CROP_TEMP_DIR"
     fi
 }
 
@@ -53,6 +61,7 @@ OPTIONS:
    -w           Border width (default: 3)
    -c           Border color (default: black)
    -o           Output path (default: ./output_images)
+   --crop-top   Remove N pixels from the top of both images (default: 0)
    -g           Skip GIF generation
    -m           Skip merge generation
    -h           Help
@@ -88,6 +97,9 @@ BORDER_WIDTH="$BORDER_WIDTH"
 BORDER_COLOR="$BORDER_COLOR"
 FIRST_TITLE="$FIRST_TITLE"
 SECOND_TITLE="$SECOND_TITLE"
+FIRST_FILE="$FIRST_FILE"
+SECOND_FILE="$SECOND_FILE"
+CROP_TOP="$CROP_TOP"
 OUTPUT_PATH="$OUTPUT_PATH"
 ============================
 EOF
@@ -130,6 +142,14 @@ while [ $i -le $# ]; do
         i=$((i + 1))
         OUTPUT_PATH="${!i}"
         ;;
+    --crop-top)
+        i=$((i + 1))
+        if [ "$i" -gt "$#" ]; then
+            echo "❌ --crop-top requires a non-negative integer" >&2
+            exit 1
+        fi
+        CROP_TOP="${!i}"
+        ;;
     -l)
         ADD_LABELS_OLD_NEW=true
         ;;
@@ -142,6 +162,13 @@ while [ $i -le $# ]; do
     esac
     i=$((i + 1))
 done
+
+if [[ ! "$CROP_TOP" =~ ^[0-9]+$ ]]; then
+    echo "❌ --crop-top requires a non-negative integer" >&2
+    exit 1
+fi
+CROP_TOP="${CROP_TOP#"${CROP_TOP%%[!0]*}"}"
+CROP_TOP="${CROP_TOP:-0}"
 
 if $ADD_LABELS_OLD_NEW; then
     FIRST_TITLE="${FIRST_TITLE:-OLD}"
@@ -182,6 +209,29 @@ if [ ! -f "$SECOND_FILE" ]; then
     exit 1
 fi
 
+INPUT_FILES=("$FIRST_FILE" "$SECOND_FILE")
+
+if [ "$CROP_TOP" != 0 ]; then
+    for FILE_PATH in "${INPUT_FILES[@]}"; do
+        IMAGE_HEIGHT=$(identify -ping -format '%h' "$FILE_PATH")
+        if [ "${#CROP_TOP}" -gt "${#IMAGE_HEIGHT}" ] || [ "$CROP_TOP" -ge "$IMAGE_HEIGHT" ]; then
+            echo "❌ --crop-top must be smaller than the image height ($IMAGE_HEIGHT): $FILE_PATH" >&2
+            exit 1
+        fi
+    done
+
+    CROP_TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/images-diff-crop.XXXXXX")
+    for index in "${!INPUT_FILES[@]}"; do
+        FILE_PATH="${INPUT_FILES[$index]}"
+        CROPPED_FILE="$CROP_TEMP_DIR/$index/$(basename "$FILE_PATH")"
+        mkdir -p "$CROP_TEMP_DIR/$index"
+        convert "$FILE_PATH" -gravity North -chop "0x$CROP_TOP" +repage "$CROPPED_FILE"
+        INPUT_FILES[$index]="$CROPPED_FILE"
+    done
+    FIRST_FILE="${INPUT_FILES[0]}"
+    SECOND_FILE="${INPUT_FILES[1]}"
+fi
+
 echo "🔵 Checking that $OUTPUT_PATH/$OUTPUT_FOLDER exist"
 if [ ! -d "$OUTPUT_PATH/$OUTPUT_FOLDER" ]; then
     echo "🔵 Creating folder $OUTPUT_FOLDER"
@@ -190,8 +240,6 @@ fi
 
 echo "🔵 Delete contents inside $OUTPUT_FOLDER folder"
 rm -rf "${OUTPUT_PATH:?}/${OUTPUT_FOLDER:?}"/* "${OUTPUT_PATH:?}/${OUTPUT_FOLDER:?}"/.[a-zA-Z0-9]*
-
-INPUT_FILES=("$FIRST_FILE" "$SECOND_FILE")
 
 echo "🔵 Start adding titles to images"
 
@@ -220,8 +268,13 @@ echo "✅ Titles added successfully"
 
 echo "🔵 Start generating diffs"
 
-# compare exits 1 when the images differ (expected here) and 2 on a real error
-compare "$FIRST_FILE" "$SECOND_FILE" -quiet -metric AE -fuzz 5% -highlight-color red "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" >&- 2>&- || [[ $? -eq 1 ]]
+COMPARE_STATUS=0
+compare "$FIRST_FILE" "$SECOND_FILE" -quiet -metric AE -fuzz 5% -highlight-color red "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.png" >/dev/null || COMPARE_STATUS=$?
+# ImageMagick returns 1 for different images, not just for errors.
+if [ "$COMPARE_STATUS" -gt 1 ]; then
+    echo "❌ Image comparison failed (exit code: $COMPARE_STATUS)" >&2
+    exit "$COMPARE_STATUS"
+fi
 
 convert '(' "$FIRST_FILE" -flatten -grayscale Rec709Luminance ')' \
     '(' "$SECOND_FILE" -flatten -grayscale Rec709Luminance ')' \
@@ -252,7 +305,7 @@ if ! $SKIP_MERGE; then
     FIRST_FILENAME="$(basename "$FIRST_FILE")"
     SECOND_FILENAME="$(basename "$SECOND_FILE")"
 
-    ./helpers/merge_images.sh -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
+    "$SCRIPT_DIR/helpers/merge_images.sh" -i "$OUTPUT_PATH/$OUTPUT_FOLDER" -o "$OUTPUT_PATH/$OUTPUT_FOLDER" -n 4 -w "$BORDER_WIDTH" -c "$BORDER_COLOR" -f "$FIRST_FILENAME" "$SECOND_FILENAME" "diff.png" "diff_red_green.png"
 else
     echo "⏭️  Skipping merge (use -m to disable)"
 fi
@@ -274,7 +327,7 @@ if ! $SKIP_GIF; then
     FPS=30
     VIDEO_NAME="temp_video.mp4"
     PALETTE_FILENAME="palette.png"
-    ffmpeg -hide_banner -loglevel error -r 3 -i "$GIF_TEMP_DIR/image%01d.png" -c:v libx264 -vf fps=$FPS -pix_fmt yuv420p "$GIF_TEMP_DIR/$VIDEO_NAME"
+    ffmpeg -hide_banner -loglevel error -r 3 -i "$GIF_TEMP_DIR/image%01d.png" -c:v libx264 -vf "fps=$FPS,pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p "$GIF_TEMP_DIR/$VIDEO_NAME"
     ffmpeg -hide_banner -loglevel error -i "$GIF_TEMP_DIR/$VIDEO_NAME" -vf fps="$FPS",scale=-1:800:flags=lanczos,palettegen "$GIF_TEMP_DIR/$PALETTE_FILENAME"
     ffmpeg -hide_banner -loglevel error -i "$GIF_TEMP_DIR/$VIDEO_NAME" -i "$GIF_TEMP_DIR/$PALETTE_FILENAME" -filter_complex "fps=$FPS,scale=-1:800:flags=lanczos[x];[x][1:v]paletteuse" -r "$FPS" "$GIF_TEMP_DIR/diff.gif"
     mv "$GIF_TEMP_DIR/diff.gif" "$OUTPUT_PATH/$OUTPUT_FOLDER/diff.gif"
