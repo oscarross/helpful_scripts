@@ -14,6 +14,13 @@ script `video_to_gif.sh`
 |**o**|Output folder|`./gifs`|
 |**h**|Help|-|
 
+### Interactive mode
+Run with `--tui` to be asked for every option instead of passing flags. The script shows the resulting command and asks before running it. Prompts use [gum](https://github.com/charmbracelet/gum) when it is installed (`brew install gum`) and plain terminal prompts otherwise.
+
+`./ios_record_simulator.sh --tui`
+
+You can also pick this script from the main launcher: `./helpful_scripts.sh` in the repo root.
+
 ### Examples
 With default parameters
 

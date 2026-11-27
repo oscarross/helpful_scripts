@@ -104,15 +104,54 @@ def process_directory(input_dir: str, output_dir: str) -> list[tuple[str, str]]:
     return changes
 
 
+def ask(prompt: str, default: str = "") -> str:
+    """Ask for a value in the terminal, returning the default on empty input."""
+    suffix = f" [{default}]" if default else ""
+    try:
+        answer = input(f"{prompt}{suffix}: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nCancelled")
+        sys.exit(130)
+    return answer or default
+
+
+def ask_required(prompt: str, default: str = "") -> str:
+    """Ask until the answer is not empty."""
+    while True:
+        answer = ask(prompt, default)
+        if answer:
+            return answer
+        print("⚠️  This value is required")
+
+
+def tui_args() -> list[str]:
+    """Interactive mode: ask for every option and return them as CLI arguments."""
+    print("\n=== Remove special characters ===")
+    print("Copies files to the output folder with snake_case names\n")
+    args = [
+        ask_required("Input directory"),
+        ask_required("Output directory", "./output"),
+    ]
+    print(f"\nCommand:\n  {sys.argv[0]} {' '.join(args)}\n")
+    if ask("Run it? [Y/n]").lower().startswith("n"):
+        print("Cancelled")
+        sys.exit(0)
+    return args
+
+
 def main() -> None:
     """Main function"""
     parser = argparse.ArgumentParser(
-        description="Convert filenames to snake_case format and remove special characters"
+        description="Convert filenames to snake_case format and remove special characters",
+        epilog="Run with --tui for interactive mode (asks for every option).",
     )
     parser.add_argument("input_dir", help="Input directory with files to process")
     parser.add_argument("output_dir", help="Output directory for processed files")
 
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    if argv[:1] == ["--tui"]:
+        argv = tui_args()
+    args = parser.parse_args(argv)
 
     print(f"Processing files from: {args.input_dir}")
     print(f"Saving results to: {args.output_dir}")

@@ -8,6 +8,8 @@ This is a **flat collection of independent, standalone scripts** — there is no
 
 Two directories (`ios_xcode_cleaner/`, `ios_unused_swift_files_variables/`) are **git submodules** pointing at third-party repos — do not edit files inside them. After cloning, run `git submodule update --init --recursive` to populate them.
 
+Two non-script pieces live at the top level: `tui_helper/tui.sh` (sourced by every bash script for its `--tui` interactive mode, gum with a plain-bash fallback, bash 3.2 compatible) and `helpful_scripts.sh` (the main launcher menu, whose `SCRIPTS` list must be updated when a script is added). See `tui_helper/README.md`.
+
 `ios_record_simulator/helpers/video_to_gif.sh` is a **symlink** to `video_to_gif/video_to_gif.sh`, not a copy — editing one edits both.
 
 ## Commands
@@ -42,7 +44,7 @@ Argument parsing follows one of two patterns, pick whichever fits:
 - `getopts "h...:"` for scripts whose flags are single dashed letters (most scripts, e.g. `images_merger.sh`, `images_resizer.sh`, `video_to_gif.sh`).
 - A custom hand-rolled parser (`images_diff.sh`) when multi-character flags like `-f1`/`-f2`/`-t1`/`-t2` are needed, since `getopts` can't express those.
 
-Scripts generally follow this internal layout: `# Params` (default values as plain vars), `show_help()` (used by `-h`, printed via heredoc), optional `show_install_info_*()` for missing dependencies (checked with `command -v <tool>`), `show_variables()` to echo the effective config, then the parsing loop, then the actual work. Preserve this shape when extending a script rather than introducing a new style.
+Scripts generally follow this internal layout: `# Params` (default values as plain vars), `show_help()` (used by `-h`, printed via heredoc), optional `show_install_info_*()` for missing dependencies (checked with `command -v <tool>`), `show_variables()` to echo the effective config, then the parsing loop, then the actual work. Preserve this shape when extending a script rather than introducing a new style. Every script also has a `run_tui()` plus a `--tui` block right before the parsing loop: it asks for the options and turns them into regular flags with `set --`, so the parser and the work below stay unchanged. When adding a flag, add its question to `run_tui()` too. The Python scripts do the same with an `ask()`/`tui_args()` pair feeding `parser.parse_args()`.
 
 Lint baseline: ShellCheck is run at `--severity=warning` (not the stricter `style`/`info` levels) — see `.pre-commit-config.yaml`. When a script violates a warning-or-above check, fix the underlying issue (e.g. rewriting a fragile loop, quoting an expansion) rather than suppressing it; there is no repo-wide shellcheck exclusion file, so any real warning should get fixed at the source.
 
