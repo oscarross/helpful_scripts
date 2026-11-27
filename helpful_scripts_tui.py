@@ -16,7 +16,7 @@ Keys:
 While editing: Enter accept, Esc cancel, Tab complete path, Ctrl+U clear.
 File/folder browser: Enter open/pick, ←/Backspace up, type to filter,
   ~ home, space pick folder, Tab type the path by hand, Esc cancel.
-Color list: Enter pick, Tab type a name or #hex, Esc cancel.
+Color / ready-value lists: Enter pick, Tab type your own, Esc cancel.
 
 Scripts run in the directory the TUI was started from, so their default
 ./input and ./output folders end up where you expect them.
@@ -105,6 +105,25 @@ def term_color(hex_):
     )
 
 
+# Ready values offered in a list (Tab there still lets you type your own)
+AGES = (
+    ("1 week ago", ""),
+    ("2 weeks ago", ""),
+    ("1 month ago", ""),
+    ("3 months ago", ""),
+    ("6 months ago", "default"),
+    ("1 year ago", ""),
+    ("2 years ago", ""),
+)
+BORDERS = ("0", "1", "2", ("3", "default"), "5", "10", "20")
+FPS = ("10", "12", ("15", "default"), "20", "24", "30")
+COLUMNS = ("1", "2", "3", ("4", "default"), "5", "6", "8")
+SIZES = ("100", "200", "300", "400", "600", "800", "1024", "1280", "1920")
+HEIGHTS = (("0", "keep aspect ratio"),) + SIZES
+QUALITY = ("60", "70", "80", "85", ("90", "default"), "95", "100")
+COUNTS = ("1", "3", "5", "10", "20", "50")
+CROPS = (("0", "no crop"), "10", "20", "50", "100", "150", "200")
+
 ANSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*\x07|[@-Z\\-_])")
 
 
@@ -117,6 +136,7 @@ class Option:
     choices: tuple = ()
     required: bool = False
     show_if: object = None  # callable(values dict) -> bool
+    presets: tuple = ()  # ready values: "value" or ("value", "hint")
     exts: tuple = ()  # file kind: extensions shown in the picker
     value: object = None
 
@@ -197,10 +217,10 @@ def build_scripts():
                 Option("Add labels", "-l", "bool", False),
                 Option("First title", "-t1", default="OLD", show_if=labels_on),
                 Option("Second title", "-t2", default="NEW", show_if=labels_on),
-                Option("Border width", "-w", "number", "3"),
+                Option("Border width", "-w", "number", "3", presets=BORDERS),
                 Option("Border color", "-c", "color", "black"),
                 Option("Output path", "-o", "dir", "./output_images"),
-                Option("Crop top (px)", "--crop-top", "number", "0"),
+                Option("Crop top (px)", "--crop-top", "number", "0", presets=CROPS),
                 Option("Skip GIF", "-g", "bool", False),
                 Option("Skip merged image", "-m", "bool", False),
             ],
@@ -215,8 +235,8 @@ def build_scripts():
             [
                 Option("Input folder", "-i", "dir", "./input_images"),
                 Option("Output folder", "-o", "dir", "./output_images"),
-                Option("Columns", "-n", "number", "4"),
-                Option("Border width", "-w", "number", "3"),
+                Option("Columns", "-n", "number", "4", presets=COLUMNS),
+                Option("Border width", "-w", "number", "3", presets=BORDERS),
                 Option("Border color", "-c", "color", "black"),
             ],
             requires=("montage",),
@@ -230,8 +250,8 @@ def build_scripts():
             [
                 Option("Input folder", "-i", "dir", "./input_images/"),
                 Option("Output folder", "-o", "dir", "./output_images"),
-                Option("Width", "-w", "number", "400"),
-                Option("Height (0 = keep ratio)", "-a", "number", "0"),
+                Option("Width", "-w", "number", "400", presets=SIZES),
+                Option("Height (0 = keep ratio)", "-a", "number", "0", presets=HEIGHTS),
                 Option("Compress (ImageOptim)", "-c", "bool", False),
             ],
             requires=("mogrify",),
@@ -246,7 +266,14 @@ def build_scripts():
                 Option("Input folder", "-i", "dir", "./input_images"),
                 Option("Output folder", "-o", "dir", "./output_images"),
                 Option("Format", "-f", "choice", "png", ("png", "jpg")),
-                Option("JPG quality 1-100", "-q", "number", "90", show_if=jpg),
+                Option(
+                    "JPG quality 1-100",
+                    "-q",
+                    "number",
+                    "90",
+                    show_if=jpg,
+                    presets=QUALITY,
+                ),
             ],
             requires=("convert",),
         ),
@@ -257,9 +284,16 @@ def build_scripts():
             "Downloads random images from picsum.photos to ./output_images",
             "images_downloader/image_downloader.py",
             [
-                Option("Number of images", "-n", "number", "5", required=True),
-                Option("Width", "-w", "number", "300"),
-                Option("Height", "-ht", "number", "300"),
+                Option(
+                    "Number of images",
+                    "-n",
+                    "number",
+                    "5",
+                    required=True,
+                    presets=COUNTS,
+                ),
+                Option("Width", "-w", "number", "300", presets=SIZES),
+                Option("Height", "-ht", "number", "300", presets=SIZES),
             ],
             runner="python",
         ),
@@ -272,7 +306,7 @@ def build_scripts():
             [
                 Option("Input folder", "-i", "dir", "./input_videos"),
                 Option("Output folder", "-o", "dir", "./output_images"),
-                Option("FPS", "-f", "number", "15"),
+                Option("FPS", "-f", "number", "15", presets=FPS),
             ],
             requires=("ffmpeg",),
         ),
@@ -294,7 +328,7 @@ def build_scripts():
             "ios_record_simulator/ios_record_simulator.sh",
             [
                 Option("Output folder", "-o", "dir", "./gifs"),
-                Option("FPS", "-f", "number", "15"),
+                Option("FPS", "-f", "number", "15", presets=FPS),
             ],
             foreground=True,
             requires=("xcrun", "ffmpeg"),
@@ -308,7 +342,12 @@ def build_scripts():
             "git_delete_old_branches_local_and_remote.sh",
             [
                 Option("Repository folder", "-r", "dir", ".", required=True),
-                Option("Older than", "-s", default="6 months ago"),
+                Option(
+                    "Older than",
+                    "-s",
+                    default="6 months ago",
+                    presets=AGES,
+                ),
                 Option("Dry run (only list)", "-d", "bool", True),
             ],
             requires=("git",),
@@ -479,7 +518,9 @@ class App:
         self.pane = "scripts"  # scripts | options
         self.edit = None  # text being edited, or None
         self.picker = None  # Picker while choosing a file or folder
-        self.colors = None  # highlighted row while choosing a color
+        self.colors = None  # highlighted row in the color / preset list
+        self.list_items = []  # (value, hint, hex or None) rows of that list
+        self.list_title = ""
         self.swatches = {}  # terminal color index -> colour pair id
         self.last_dir = "."  # folder of the last picked file or folder
         self.log_q = queue.Queue()
@@ -667,7 +708,7 @@ class App:
         self.put(h - 1, x, f" {state[0]} ", badge)
         x += len(state[0]) + 4
         if self.colors is not None:
-            keys = (("↑↓", "move"), ("⏎", "choose"), ("tab", "type name/hex"))
+            keys = (("↑↓", "move"), ("⏎", "choose"), ("tab", "type your own"))
             keys += (("esc", "cancel"),)
         elif self.picker is not None:
             keys = (("⏎", "open/choose"), ("←", "up"), ("~", "home"))
@@ -715,9 +756,14 @@ class App:
             i = o.choices.index(o.value)
             o.value = o.choices[(i + step) % len(o.choices)]
         elif o.kind == "color" and not manual:
-            names = [name for name, _ in COLORS]
-            value = str(o.value).strip().lower()
-            self.colors = names.index(value) if value in names else 0
+            items = [(name, hex_, hex_) for name, hex_ in COLORS]
+            self.open_list("Choose color", items, o.value)
+        elif o.presets and not manual:
+            items = []
+            for preset in o.presets:
+                value, hint = preset if isinstance(preset, tuple) else (preset, "")
+                items.append((str(value), hint, None))
+            self.open_list(f"Choose {o.label.lower()}", items, o.value)
         elif o.kind in ("file", "dir") and not manual:
             # an empty option starts where the last pick happened
             start = str(o.value) or self.last_dir
@@ -825,8 +871,14 @@ class App:
             self.swatches[index] = pair
         return curses.color_pair(self.swatches[index])
 
+    def open_list(self, title, items, current):
+        values = [v.lower() for v, _, _ in items]
+        current = str(current).strip().lower()
+        self.list_title, self.list_items = title, items
+        self.colors = values.index(current) if current in values else 0
+
     def handle_colors(self, k):
-        n = len(COLORS)
+        n = len(self.list_items)
         if k == "\x1b":
             self.colors = None
         elif k == "\t":  # type a name or #hex instead
@@ -837,29 +889,38 @@ class App:
         elif k == curses.KEY_UP:
             self.colors = (self.colors - 1) % n
         elif k in ("\n", "\r", " ", curses.KEY_ENTER):
-            self.current_option().value = COLORS[self.colors][0]
+            self.current_option().value = self.list_items[self.colors][0]
             self.colors = None
             self.opt = min(self.opt + 1, len(self.script.visible()) - 1)
 
     def draw_colors(self, x, y, bw, bh):
-        self.box(y, x, bh, bw, "Choose color", True)
+        items = self.list_items
+        self.box(y, x, bh, bw, self.list_title, True)
         for r in range(1, bh - 1):
             self.put(y + r, x + 1, " " * (bw - 2))
-        info = "ImageMagick color names  ·  Tab: type a name or #hex"
+        is_color = items[0][2] is not None
+        if is_color:
+            info = "ImageMagick color names  ·  Tab: type a name or #hex"
+        else:
+            info = "Ready values  ·  Tab: type your own"
         self.put(y + 1, x + 2, info, curses.A_DIM, bw - 4)
         avail = bh - 3
-        first = max(0, min(self.colors - avail // 2, len(COLORS) - avail))
-        for i, (name, hex_) in enumerate(COLORS[first : first + avail]):
+        first = max(0, min(self.colors - avail // 2, len(items) - avail))
+        width = max(len(v) for v, _, _ in items) + 2
+        for i, (value, hint, hex_) in enumerate(items[first : first + avail]):
             row = y + 2 + i
             focus = first + i == self.colors
             if focus:
                 self.put(row, x + 2, "▶", self.col(C_ACCENT, curses.A_BOLD))
-            swatch = self.swatch(hex_)
-            if swatch is not None:
-                self.put(row, x + 4, "      ", swatch)
+            vx = x + 4
+            if is_color:
+                swatch = self.swatch(hex_)
+                if swatch is not None:
+                    self.put(row, vx, "      ", swatch)
+                vx += 7
             attr = curses.A_REVERSE | curses.A_BOLD if focus else 0
-            self.put(row, x + 11, f" {name:<12}", attr)
-            self.put(row, x + 25, hex_, curses.A_DIM)
+            self.put(row, vx, f" {value:<{width}}", attr)
+            self.put(row, vx + width + 2, hint, curses.A_DIM)
 
     def handle_picker(self, k):
         p = self.picker
