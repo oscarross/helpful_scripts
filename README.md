@@ -10,14 +10,20 @@ This repository contains git submodules. After cloning, run:
 git submodule update --init --recursive
 ```
 
-## Interactive mode (TUI)
+## Terminal UI
 
-Start the main launcher to pick a script from a menu:
+All scripts can be run from one terminal UI (Python 3, stdlib `curses`, no dependencies):
 ```bash
-./helpful_scripts.sh
+./helpful_scripts_tui.py
 ```
 
-Every script can also be started on its own with `--tui` to be asked for its options, e.g. `./images_merger/images_merger.sh --tui`. The existing flags work as before. Prompts use [gum](https://github.com/charmbracelet/gum) when it is installed (`brew install gum`) and plain terminal prompts otherwise. See [tui_helper](./tui_helper).
+Pick a script on the left, edit its options on the right, check the command preview and press `r` to run it. The output streams into the log panel. Interactive scripts (iOS record simulator, Video duplicate finder) get the whole terminal while they run, then the UI comes back.
+
+Every script also accepts `--tui`, which opens the UI straight on that script, e.g. `./images_merger/images_merger.sh --tui`. The existing flags work as before.
+
+Keys: `↑/↓` move, `Tab`/`←→` switch between the list and the options, `Enter` edit an option (`Tab` completes paths), `space` toggle or change a choice, `r` run, `x` stop, `d` reset to defaults, `PgUp/PgDn` scroll the log, `q` quit.
+
+Scripts run in the directory you start the UI from, so their default `./input_*` and `./output_*` folders end up there.
 
 ## Development
 

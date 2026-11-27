@@ -23,7 +23,7 @@ EXAMPLE:
     $0 -w 400 -a 300 -c
     $0 --tui
 OPTIONS:
-   --tui        Interactive mode (asks for every option)
+   --tui        Open the terminal UI on this script
    -h           Help
    -w           Images width
    -a           Images height
@@ -76,29 +76,9 @@ OUTPUT_FOLDER="$OUTPUT_FOLDER"
 EOF
 }
 
-run_tui() {
-    tui_header "Images resizer" "Resizes all images from the input folder (0 keeps the aspect ratio)"
-    tui_add_arg -i "$(tui_input "Input folder" "$INPUT_FOLDER")"
-    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
-    tui_add_arg -w "$(tui_input_number "Width" "$IMAGE_WIDTH")"
-    tui_add_arg -a "$(tui_input_number "Height" "$IMAGE_HEIGHT")"
-    if tui_confirm "Compress with ImageOptim?" no; then
-        tui_add_arg -c
-    fi
-    tui_confirm_run "$0"
-}
-
-# Interactive mode: ask for the options, then parse them like regular flags
+# Interactive mode: open the terminal UI of this repo on this script
 if [[ "${1:-}" == "--tui" ]]; then
-    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
-    if [[ ! -f "$TUI_HELPER" ]]; then
-        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
-        exit 1
-    fi
-    # shellcheck source=../tui_helper/tui.sh
-    source "$TUI_HELPER"
-    run_tui
-    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+    exec python3 "$SCRIPT_DIR/../helpful_scripts_tui.py" --script images_resizer
 fi
 
 # Get params

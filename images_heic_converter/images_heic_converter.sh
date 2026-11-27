@@ -23,7 +23,7 @@ EXAMPLE:
     $0 -f jpg -q 85
     $0 --tui
 OPTIONS:
-   --tui        Interactive mode (asks for every option)
+   --tui        Open the terminal UI on this script
    -i           Input folder
    -o           Output folder
    -f           Output format: png or jpg
@@ -59,30 +59,9 @@ QUALITY="$QUALITY"
 EOF
 }
 
-run_tui() {
-    local format
-    tui_header "Images HEIC converter" "Converts HEIC/HEIF images to PNG or JPG"
-    tui_add_arg -i "$(tui_input "Input folder" "$INPUT_FOLDER")"
-    tui_add_arg -o "$(tui_input "Output folder" "$OUTPUT_FOLDER")"
-    format="$(tui_choose "Output format" png jpg)"
-    tui_add_arg -f "$format"
-    if [[ "$format" == "jpg" ]]; then
-        tui_add_arg -q "$(tui_input_number "JPG quality 1-100" "$QUALITY")"
-    fi
-    tui_confirm_run "$0"
-}
-
-# Interactive mode: ask for the options, then parse them like regular flags
+# Interactive mode: open the terminal UI of this repo on this script
 if [[ "${1:-}" == "--tui" ]]; then
-    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
-    if [[ ! -f "$TUI_HELPER" ]]; then
-        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
-        exit 1
-    fi
-    # shellcheck source=../tui_helper/tui.sh
-    source "$TUI_HELPER"
-    run_tui
-    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+    exec python3 "$SCRIPT_DIR/../helpful_scripts_tui.py" --script images_heic_converter
 fi
 
 # Get params

@@ -54,7 +54,7 @@ EXAMPLE:
     $0 --tui
     $0 -f1 before.png -f2 after.png -l -t1 'OLD' -t2 'NEW'
 OPTIONS:
-   --tui        Interactive mode (asks for every option)
+   --tui        Open the terminal UI on this script
    -f1          First file (required)
    -f2          Second file (required)
    -l           Add labels (uses -t1 and -t2, or defaults to OLD/NEW)
@@ -107,43 +107,9 @@ OUTPUT_PATH="$OUTPUT_PATH"
 EOF
 }
 
-run_tui() {
-    local crop_top
-    tui_header "Images diff" "Generates a diff, a merged image and a gif from two images"
-    tui_add_arg -f1 "$(tui_input_required "First file" "$FIRST_FILE")"
-    tui_add_arg -f2 "$(tui_input_required "Second file" "$SECOND_FILE")"
-    if tui_confirm "Add labels?" no; then
-        tui_add_arg -l
-        tui_add_arg -t1 "$(tui_input "First image title" "OLD")"
-        tui_add_arg -t2 "$(tui_input "Second image title" "NEW")"
-    fi
-    tui_add_arg -w "$(tui_input_number "Border width" "$BORDER_WIDTH")"
-    tui_add_arg -c "$(tui_input "Border color" "$BORDER_COLOR")"
-    tui_add_arg -o "$(tui_input "Output path" "$OUTPUT_PATH")"
-    crop_top="$(tui_input_number "Pixels to crop from the top" "$CROP_TOP")"
-    if [[ "$crop_top" != "0" ]]; then
-        tui_add_arg --crop-top "$crop_top"
-    fi
-    if ! tui_confirm "Generate GIF?"; then
-        tui_add_arg -g
-    fi
-    if ! tui_confirm "Generate merged image?"; then
-        tui_add_arg -m
-    fi
-    tui_confirm_run "$0"
-}
-
-# Interactive mode: ask for the options, then parse them like regular flags
+# Interactive mode: open the terminal UI of this repo on this script
 if [[ "${1:-}" == "--tui" ]]; then
-    TUI_HELPER="$SCRIPT_DIR/../tui_helper/tui.sh"
-    if [[ ! -f "$TUI_HELPER" ]]; then
-        echo "❌ --tui needs $TUI_HELPER (keep the script inside the repo)" >&2
-        exit 1
-    fi
-    # shellcheck source=../tui_helper/tui.sh
-    source "$TUI_HELPER"
-    run_tui
-    set -- ${TUI_ARGS[@]+"${TUI_ARGS[@]}"}
+    exec python3 "$SCRIPT_DIR/../helpful_scripts_tui.py" --script images_diff
 fi
 
 # Get params - custom parser for multi-char options like -f1, -f2, -t1, -t2
