@@ -21,7 +21,9 @@ Pick a script on the left, edit its options on the right, check the command prev
 
 Every script also accepts `--tui`, which opens the UI straight on that script, e.g. `./images_merger/images_merger.sh --tui`. The existing flags work as before.
 
-Keys: `↑/↓` move, `Tab`/`←→` switch between the list and the options, `Enter` edit an option (`Tab` completes paths), `space` toggle or change a choice, `r` run, `x` stop, `d` reset to defaults, `PgUp/PgDn` scroll the log, `q` quit.
+Keys: `↑/↓` move, `Tab`/`←→` switch between the list and the options, `Enter` edit an option, `space` toggle or change a choice, `r` run, `x` stop, `d` reset to defaults, `PgUp/PgDn` scroll the log, `q` quit.
+
+File and folder options open a browser: `Enter` opens a folder or picks a file, `←`/`Backspace` goes up, typing filters the list (start with `.` to see hidden files), `~` jumps home, `space` or "Use this folder" picks a folder, `Tab` lets you type the path by hand instead (with `Tab` completion).
 
 Scripts run in the directory you start the UI from, so their default `./input_*` and `./output_*` folders end up there.
 

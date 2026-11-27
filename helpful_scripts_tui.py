@@ -14,6 +14,8 @@ Keys:
   r         run script          x         stop running script
   d         reset to defaults   PgUp/PgDn scroll log      q  quit
 While editing: Enter accept, Esc cancel, Tab complete path, Ctrl+U clear.
+File/folder browser: Enter open/pick, ←/Backspace up, type to filter,
+  ~ home, space pick folder, Tab type the path by hand, Esc cancel.
 
 Scripts run in the directory the TUI was started from, so their default
 ./input and ./output folders end up where you expect them.
@@ -34,6 +36,7 @@ from dataclasses import dataclass, field
 
 REPO_DIR = os.path.dirname(os.path.realpath(__file__))
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".heic")
 ANSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*\x07|[@-Z\\-_])")
 
 
@@ -41,11 +44,12 @@ ANSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*\x07|[@-Z\\-_])")
 class Option:
     label: str
     flag: str  # "" for a positional argument
-    kind: str = "text"  # text | number | bool | choice
+    kind: str = "text"  # text | number | bool | choice | file | dir
     default: object = ""
     choices: tuple = ()
     required: bool = False
     show_if: object = None  # callable(values dict) -> bool
+    exts: tuple = ()  # file kind: extensions shown in the picker
     value: object = None
 
     def reset(self):
@@ -120,14 +124,14 @@ def build_scripts():
             "Diff, merged image and gif from two images",
             "images_diff/images_diff.sh",
             [
-                Option("First file", "-f1", required=True),
-                Option("Second file", "-f2", required=True),
+                Option("First file", "-f1", "file", required=True, exts=IMAGE_EXTS),
+                Option("Second file", "-f2", "file", required=True, exts=IMAGE_EXTS),
                 Option("Add labels", "-l", "bool", False),
                 Option("First title", "-t1", default="OLD", show_if=labels_on),
                 Option("Second title", "-t2", default="NEW", show_if=labels_on),
                 Option("Border width", "-w", "number", "3"),
                 Option("Border color", "-c", default="black"),
-                Option("Output path", "-o", default="./output_images"),
+                Option("Output path", "-o", "dir", "./output_images"),
                 Option("Crop top (px)", "--crop-top", "number", "0"),
                 Option("Skip GIF", "-g", "bool", False),
                 Option("Skip merged image", "-m", "bool", False),
@@ -141,8 +145,8 @@ def build_scripts():
             "Merges all images from a folder into one grid",
             "images_merger/images_merger.sh",
             [
-                Option("Input folder", "-i", default="./input_images"),
-                Option("Output folder", "-o", default="./output_images"),
+                Option("Input folder", "-i", "dir", "./input_images"),
+                Option("Output folder", "-o", "dir", "./output_images"),
                 Option("Columns", "-n", "number", "4"),
                 Option("Border width", "-w", "number", "3"),
                 Option("Border color", "-c", default="black"),
@@ -156,8 +160,8 @@ def build_scripts():
             "Resizes all images from a folder",
             "images_resizer/images_resizer.sh",
             [
-                Option("Input folder", "-i", default="./input_images/"),
-                Option("Output folder", "-o", default="./output_images"),
+                Option("Input folder", "-i", "dir", "./input_images/"),
+                Option("Output folder", "-o", "dir", "./output_images"),
                 Option("Width", "-w", "number", "400"),
                 Option("Height (0 = keep ratio)", "-a", "number", "0"),
                 Option("Compress (ImageOptim)", "-c", "bool", False),
@@ -171,8 +175,8 @@ def build_scripts():
             "Converts HEIC/HEIF images to PNG or JPG",
             "images_heic_converter/images_heic_converter.sh",
             [
-                Option("Input folder", "-i", default="./input_images"),
-                Option("Output folder", "-o", default="./output_images"),
+                Option("Input folder", "-i", "dir", "./input_images"),
+                Option("Output folder", "-o", "dir", "./output_images"),
                 Option("Format", "-f", "choice", "png", ("png", "jpg")),
                 Option("JPG quality 1-100", "-q", "number", "90", show_if=jpg),
             ],
@@ -198,8 +202,8 @@ def build_scripts():
             "Converts every .mov/.mp4 from a folder to a gif",
             "video_to_gif/video_to_gif.sh",
             [
-                Option("Input folder", "-i", default="./input_videos"),
-                Option("Output folder", "-o", default="./output_images"),
+                Option("Input folder", "-i", "dir", "./input_videos"),
+                Option("Output folder", "-o", "dir", "./output_images"),
                 Option("FPS", "-f", "number", "15"),
             ],
             requires=("ffmpeg",),
@@ -221,7 +225,7 @@ def build_scripts():
             "Records the booted simulator (Ctrl+C stops) and makes a gif",
             "ios_record_simulator/ios_record_simulator.sh",
             [
-                Option("Output folder", "-o", default="./gifs"),
+                Option("Output folder", "-o", "dir", "./gifs"),
                 Option("FPS", "-f", "number", "15"),
             ],
             foreground=True,
@@ -235,7 +239,7 @@ def build_scripts():
             "git_delete_old_branches_local_and_remote/"
             "git_delete_old_branches_local_and_remote.sh",
             [
-                Option("Repository folder", "-r", default=".", required=True),
+                Option("Repository folder", "-r", "dir", ".", required=True),
                 Option("Older than", "-s", default="6 months ago"),
                 Option("Dry run (only list)", "-d", "bool", True),
             ],
@@ -248,8 +252,8 @@ def build_scripts():
             "Copies files with snake_case names, no special characters",
             "remove_special_characters/remove_special_chars.py",
             [
-                Option("Input directory", "", required=True),
-                Option("Output directory", "", default="./output", required=True),
+                Option("Input directory", "", "dir", required=True),
+                Option("Output directory", "", "dir", "./output", required=True),
             ],
             runner="python",
         ),
@@ -268,6 +272,70 @@ def complete_path(text):
     if text.startswith("~"):
         prefix = "~" + prefix[len(os.path.expanduser("~")) :]
     return prefix if len(prefix) >= len(text) else text
+
+
+class Picker:
+    """File or folder browser shown over the options and log panels."""
+
+    def __init__(self, kind, value, exts=()):
+        self.kind = kind  # file | dir
+        self.exts = tuple(e.lower() for e in exts)
+        self.filter = ""
+        self.cur = 0
+        self.error = ""
+        path = os.path.abspath(os.path.expanduser(value or "."))
+        select = ""
+        while not os.path.isdir(path):  # start from the closest existing folder
+            select = os.path.basename(path)
+            parent = os.path.dirname(path)
+            if parent == path:
+                path = os.getcwd()
+                break
+            path = parent
+        self.cd(path, select)
+
+    def cd(self, path, select=""):
+        try:
+            names = os.listdir(path)
+        except OSError as e:
+            self.error = f"✖ {e.strerror}"
+            return
+        self.path, self.names, self.filter, self.error = path, names, "", ""
+        entries = self.entries()
+        labels = [e[0] for e in entries]
+        self.cur = labels.index(select) if select in labels else 0
+
+    def entries(self):
+        """(name, is_dir) rows: action row, "..", folders, then files."""
+        rows = []
+        if self.kind == "dir" and not self.filter:
+            rows.append(("✔ Use this folder", None))
+        if not self.filter and os.path.dirname(self.path) != self.path:
+            rows.append(("..", True))
+        show_hidden = self.filter.startswith(".")
+        dirs, files = [], []
+        for name in sorted(self.names, key=str.lower):
+            if name.startswith(".") and not show_hidden:
+                continue
+            if self.filter and self.filter.lower() not in name.lower():
+                continue
+            if os.path.isdir(os.path.join(self.path, name)):
+                dirs.append((name, True))
+            elif self.kind == "file":
+                if not self.exts or name.lower().endswith(self.exts):
+                    files.append((name, False))
+        return rows + dirs + files
+
+    def result(self, name=None):
+        """Path for the option: relative to cwd when inside it."""
+        path = os.path.join(self.path, name) if name else self.path
+        rel = os.path.relpath(path, os.getcwd())
+        if rel == ".":
+            return "."
+        if not rel.startswith(".."):
+            return "./" + rel
+        home = os.path.expanduser("~")
+        return "~" + path[len(home) :] if path.startswith(home + os.sep) else path
 
 
 class Runner:
@@ -342,6 +410,8 @@ class App:
         self.opt = 0
         self.pane = "scripts"  # scripts | options
         self.edit = None  # text being edited, or None
+        self.picker = None  # Picker while choosing a file or folder
+        self.last_dir = "."  # folder of the last picked file or folder
         self.log_q = queue.Queue()
         self.lines = []  # (style, text)
         self.scroll = 0
@@ -506,15 +576,25 @@ class App:
             hint = "Pick a script, Tab to its options, Enter to edit, r to run."
             self.put(ly + 1, 3, hint, curses.A_DIM)
 
+        if self.picker is not None:
+            self.draw_picker(ox, 2, ow, h - 3)
+
         # footer
         x = 1
         state = ("RUNNING", C_WARN) if self.runner.busy else ("READY", C_OK)
         if self.edit is not None:
             state = ("EDIT", C_ACCENT)
+        if self.picker is not None:
+            state = ("BROWSE", C_ACCENT)
         badge = self.col(state[1], curses.A_REVERSE | curses.A_BOLD)
         self.put(h - 1, x, f" {state[0]} ", badge)
         x += len(state[0]) + 4
-        if self.edit is not None:
+        if self.picker is not None:
+            keys = (("⏎", "open/choose"), ("←", "up"), ("~", "home"))
+            if self.picker.kind == "dir":
+                keys += (("space", "choose"),)
+            keys += (("tab", "type path"), ("esc", "cancel"))
+        elif self.edit is not None:
             keys = (("⏎", "accept"), ("esc", "cancel"), ("tab", "complete"))
         else:
             keys = (("tab", "pane"), ("⏎", "edit"), ("space", "toggle"))
@@ -545,7 +625,7 @@ class App:
         self.opt = min(self.opt, len(visible) - 1)
         return visible[self.opt]
 
-    def activate(self, step=1):
+    def activate(self, step=1, manual=False):
         o = self.current_option()
         if o is None:
             return
@@ -554,6 +634,10 @@ class App:
         elif o.kind == "choice":
             i = o.choices.index(o.value)
             o.value = o.choices[(i + step) % len(o.choices)]
+        elif o.kind in ("file", "dir") and not manual:
+            # an empty option starts where the last pick happened
+            start = str(o.value) or self.last_dir
+            self.picker = Picker(o.kind, start, o.exts)
         else:
             self.edit = str(o.value)
 
@@ -636,12 +720,108 @@ class App:
                 return
             self.edit += k
 
+    def picked(self, value):
+        """Store the picked path and move on to the next option."""
+        p = self.picker
+        self.current_option().value = value
+        self.last_dir = p.path
+        self.picker = None
+        self.opt = min(self.opt + 1, len(self.script.visible()) - 1)
+
+    def handle_picker(self, k):
+        p = self.picker
+        entries = p.entries()
+        if k == "\x1b":
+            self.picker = None
+        elif k == "\t":  # type the path by hand instead
+            self.picker = None
+            self.activate(manual=True)
+        elif k in (curses.KEY_DOWN,) and entries:
+            p.cur = (p.cur + 1) % len(entries)
+        elif k in (curses.KEY_UP,) and entries:
+            p.cur = (p.cur - 1) % len(entries)
+        elif k == curses.KEY_NPAGE and entries:
+            p.cur = min(p.cur + 10, len(entries) - 1)
+        elif k == curses.KEY_PPAGE:
+            p.cur = max(p.cur - 10, 0)
+        elif k in (curses.KEY_LEFT,) or (
+            k in ("\x7f", "\b", curses.KEY_BACKSPACE) and not p.filter
+        ):
+            p.cd(os.path.dirname(p.path), os.path.basename(p.path))
+        elif k in ("\x7f", "\b", curses.KEY_BACKSPACE):
+            p.filter, p.cur = p.filter[:-1], 0
+        elif k in ("\n", "\r", curses.KEY_ENTER, curses.KEY_RIGHT) and entries:
+            name, is_dir = entries[min(p.cur, len(entries) - 1)]
+            if is_dir is None:  # "Use this folder"
+                if k != curses.KEY_RIGHT:
+                    self.picked(p.result())
+            elif is_dir:
+                if name == "..":
+                    p.cd(os.path.dirname(p.path), os.path.basename(p.path))
+                else:
+                    p.cd(os.path.join(p.path, name))
+            elif k != curses.KEY_RIGHT:
+                self.picked(p.result(name))
+        elif k == " " and p.kind == "dir" and entries:
+            name, is_dir = entries[min(p.cur, len(entries) - 1)]
+            if is_dir and name != "..":  # pick the highlighted folder
+                self.picked(p.result(name))
+        elif k == "~":
+            p.cd(os.path.expanduser("~"))
+        elif isinstance(k, str) and k.isprintable():
+            p.filter, p.cur = p.filter + k, 0
+
+    def draw_picker(self, x, y, bw, bh):
+        p = self.picker
+        what = "file" if p.kind == "file" else "folder"
+        self.box(y, x, bh, bw, f"Choose {what}", True)
+        for r in range(1, bh - 1):
+            self.put(y + r, x + 1, " " * (bw - 2))
+        path = p.path
+        if len(path) > bw - 6:
+            path = "…" + path[-(bw - 7) :]
+        self.put(y + 1, x + 2, path, self.col(C_ACCENT, curses.A_BOLD))
+        if p.error:
+            info, attr = p.error, self.col(C_ERR)
+        elif p.filter:
+            info, attr = f"filter: {p.filter}▏", self.col(C_WARN)
+        else:
+            info = "type to filter"
+            if p.exts:
+                info += "  ·  " + " ".join(e.lstrip(".") for e in p.exts)
+            attr = curses.A_DIM
+        self.put(y + 2, x + 2, info, attr, bw - 4)
+        entries = p.entries()
+        avail = bh - 4
+        p.cur = min(p.cur, max(len(entries) - 1, 0))
+        first = max(0, min(p.cur - avail // 2, len(entries) - avail))
+        if not entries:
+            self.put(y + 3, x + 4, "nothing matches", curses.A_DIM)
+        for i, (name, is_dir) in enumerate(entries[first : first + avail]):
+            row = y + 3 + i
+            focus = first + i == p.cur
+            if is_dir is None:
+                label, attr = name, self.col(C_OK, curses.A_BOLD)
+            elif is_dir:
+                label, attr = name + "/", self.col(C_ACCENT)
+            else:
+                label, attr = name, 0
+            if focus:
+                attr |= curses.A_REVERSE
+                self.put(row, x + 2, "▶", self.col(C_ACCENT, curses.A_BOLD))
+            self.put(row, x + 4, f" {label} ", attr, bw - 7)
+        if len(entries) > avail:
+            self.put(y + bh - 1, x + bw - 12, f" {p.cur + 1}/{len(entries)} ")
+
     def loop(self):
         while True:
             self.drain()
             self.draw()
             k = self.key()
             if k is None or k == curses.KEY_RESIZE:
+                continue
+            if self.picker is not None:
+                self.handle_picker(k)
                 continue
             if self.edit is not None:
                 self.handle_edit(k)
