@@ -20,6 +20,7 @@ Script to generate visual diffs from two images with support for labels, custom 
 |**w**|Border width|3|No|
 |**c**|Border color|black|No|
 |**o**|Output path|`./output_images`|No|
+|**--crop-top**|Pixels to remove from the top of both images before comparison|0|No|
 |**l**|Add labels to images|disabled|No|
 |**t1**|Custom title for first image|OLD (when -l used)|No|
 |**t2**|Custom title for second image|NEW (when -l used)|No|
@@ -49,6 +50,15 @@ Script to generate visual diffs from two images with support for labels, custom 
 ./images_diff.sh -f1 first.png -f2 second.png -l -g -m
 ```
 
+**Ignore the top 100 pixels (for example, the status bar)**
+```bash
+./images_diff.sh -f1 first.png -f2 second.png -l --crop-top 100
+```
+
+Cropping applies to both images before labels, diffs, montage, and GIF generation.
+Original files are not modified. The value must be a non-negative integer smaller than the height of each image.
+Omit the option or use `--crop-top 0` to keep the full images.
+
 **Show help**
 ```bash
 ./images_diff.sh -h
@@ -73,6 +83,11 @@ Script to generate visual diffs from two images with support for labels, custom 
 |`diff.gif`|Animated GIF alternating between images|
 
 ### Output Structure
+
+Results are saved in `./output_images/GENERATED/` by default (or `<path>/GENERATED/` with `-o <path>`).
+Different images are a successful comparison, not an error. Real comparison errors stop the script and are printed to the terminal.
+For GIF encoding, odd-sized images are padded by at most one pixel per dimension without resizing their content.
+
 ```
 output_images/GENERATED/
 ├── before.png              # Original first image with title
