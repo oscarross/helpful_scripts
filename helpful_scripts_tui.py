@@ -16,6 +16,7 @@ Keys:
 While editing: Enter accept, Esc cancel, Tab complete path, Ctrl+U clear.
 File/folder browser: Enter open/pick, ←/Backspace up, type to filter,
   ~ home, space pick folder, Tab type the path by hand, Esc cancel.
+Color list: Enter pick, Tab type a name or #hex, Esc cancel.
 
 Scripts run in the directory the TUI was started from, so their default
 ./input and ./output folders end up where you expect them.
@@ -37,6 +38,73 @@ from dataclasses import dataclass, field
 REPO_DIR = os.path.dirname(os.path.realpath(__file__))
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".heic")
+# ImageMagick color names (the scripts pass the value to -bordercolor)
+COLORS = (
+    ("black", "#000000"),
+    ("white", "#ffffff"),
+    ("gray25", "#404040"),
+    ("gray50", "#7f7f7f"),
+    ("lightgray", "#d3d3d3"),
+    ("red", "#ff0000"),
+    ("darkred", "#8b0000"),
+    ("orange", "#ffa500"),
+    ("gold", "#ffd700"),
+    ("yellow", "#ffff00"),
+    ("lime", "#00ff00"),
+    ("green", "#008000"),
+    ("teal", "#008080"),
+    ("cyan", "#00ffff"),
+    ("skyblue", "#87ceeb"),
+    ("blue", "#0000ff"),
+    ("navy", "#000080"),
+    ("purple", "#800080"),
+    ("magenta", "#ff00ff"),
+    ("pink", "#ffc0cb"),
+    ("brown", "#a52a2a"),
+    ("#323a47", "#323a47"),
+)
+
+
+def color_hex(value):
+    """#rrggbb for a known color name or a #rgb / #rrggbb value, else None."""
+    value = str(value).strip().lower()
+    for name, hex_ in COLORS:
+        if value == name:
+            return hex_
+    if re.fullmatch(r"#[0-9a-f]{3}", value):
+        return "#" + "".join(c * 2 for c in value[1:])
+    if re.fullmatch(r"#[0-9a-f]{6}", value):
+        return value
+    return None
+
+
+def term_color(hex_):
+    """Closest terminal color index: xterm 256-color palette, else the basic 8."""
+    r, g, b = (int(hex_[i : i + 2], 16) for i in (1, 3, 5))
+    if curses.COLORS >= 256:
+        steps = (0, 95, 135, 175, 215, 255)
+
+        def near(v):
+            return min(range(6), key=lambda i: abs(steps[i] - v))
+
+        cube = (near(r), near(g), near(b))
+        cube_rgb = tuple(steps[i] for i in cube)
+        gray = min(range(24), key=lambda i: abs(8 + 10 * i - (r + g + b) / 3))
+        gray_rgb = (8 + 10 * gray,) * 3
+
+        def dist(c):
+            return sum((x - y) ** 2 for x, y in zip(c, (r, g, b)))
+
+        if dist(gray_rgb) < dist(cube_rgb):
+            return 232 + gray
+        return 16 + 36 * cube[0] + 6 * cube[1] + cube[2]
+    basic = [(0, 0, 0), (205, 0, 0), (0, 205, 0), (205, 205, 0)]
+    basic += [(0, 0, 238), (205, 0, 205), (0, 205, 205), (229, 229, 229)]
+    return min(
+        range(8), key=lambda i: sum((x - y) ** 2 for x, y in zip(basic[i], (r, g, b)))
+    )
+
+
 ANSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*\x07|[@-Z\\-_])")
 
 
@@ -44,7 +112,7 @@ ANSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*\x07|[@-Z\\-_])")
 class Option:
     label: str
     flag: str  # "" for a positional argument
-    kind: str = "text"  # text | number | bool | choice | file | dir
+    kind: str = "text"  # text | number | bool | choice | file | dir | color
     default: object = ""
     choices: tuple = ()
     required: bool = False
@@ -130,7 +198,7 @@ def build_scripts():
                 Option("First title", "-t1", default="OLD", show_if=labels_on),
                 Option("Second title", "-t2", default="NEW", show_if=labels_on),
                 Option("Border width", "-w", "number", "3"),
-                Option("Border color", "-c", default="black"),
+                Option("Border color", "-c", "color", "black"),
                 Option("Output path", "-o", "dir", "./output_images"),
                 Option("Crop top (px)", "--crop-top", "number", "0"),
                 Option("Skip GIF", "-g", "bool", False),
@@ -149,7 +217,7 @@ def build_scripts():
                 Option("Output folder", "-o", "dir", "./output_images"),
                 Option("Columns", "-n", "number", "4"),
                 Option("Border width", "-w", "number", "3"),
-                Option("Border color", "-c", default="black"),
+                Option("Border color", "-c", "color", "black"),
             ],
             requires=("montage",),
         ),
@@ -411,6 +479,8 @@ class App:
         self.pane = "scripts"  # scripts | options
         self.edit = None  # text being edited, or None
         self.picker = None  # Picker while choosing a file or folder
+        self.colors = None  # highlighted row while choosing a color
+        self.swatches = {}  # terminal color index -> colour pair id
         self.last_dir = "."  # folder of the last picked file or folder
         self.log_q = queue.Queue()
         self.lines = []  # (style, text)
@@ -556,6 +626,11 @@ class App:
                 if not value:
                     value = "required" if o.required else "-"
                     attr = self.col(C_ERR if o.required else 0, curses.A_DIM)
+                if o.kind == "color":
+                    swatch = self.swatch(color_hex(o.value))
+                    if swatch is not None:
+                        self.put(y, vx, "  ", swatch)
+                        vx += 3
                 self.put(y, vx, value, attr, ow - (vx - ox) - 2)
             y += 1
         # command preview
@@ -578,18 +653,23 @@ class App:
 
         if self.picker is not None:
             self.draw_picker(ox, 2, ow, h - 3)
+        if self.colors is not None:
+            self.draw_colors(ox, 2, ow, h - 3)
 
         # footer
         x = 1
         state = ("RUNNING", C_WARN) if self.runner.busy else ("READY", C_OK)
         if self.edit is not None:
             state = ("EDIT", C_ACCENT)
-        if self.picker is not None:
+        if self.picker is not None or self.colors is not None:
             state = ("BROWSE", C_ACCENT)
         badge = self.col(state[1], curses.A_REVERSE | curses.A_BOLD)
         self.put(h - 1, x, f" {state[0]} ", badge)
         x += len(state[0]) + 4
-        if self.picker is not None:
+        if self.colors is not None:
+            keys = (("↑↓", "move"), ("⏎", "choose"), ("tab", "type name/hex"))
+            keys += (("esc", "cancel"),)
+        elif self.picker is not None:
             keys = (("⏎", "open/choose"), ("←", "up"), ("~", "home"))
             if self.picker.kind == "dir":
                 keys += (("space", "choose"),)
@@ -634,6 +714,10 @@ class App:
         elif o.kind == "choice":
             i = o.choices.index(o.value)
             o.value = o.choices[(i + step) % len(o.choices)]
+        elif o.kind == "color" and not manual:
+            names = [name for name, _ in COLORS]
+            value = str(o.value).strip().lower()
+            self.colors = names.index(value) if value in names else 0
         elif o.kind in ("file", "dir") and not manual:
             # an empty option starts where the last pick happened
             start = str(o.value) or self.last_dir
@@ -727,6 +811,55 @@ class App:
         self.last_dir = p.path
         self.picker = None
         self.opt = min(self.opt + 1, len(self.script.visible()) - 1)
+
+    def swatch(self, hex_):
+        """Attribute that paints a cell in this color (pairs made on demand)."""
+        if hex_ is None or not curses.has_colors():
+            return None
+        index = term_color(hex_)
+        if index not in self.swatches:
+            pair = 20 + len(self.swatches)
+            if pair >= curses.COLOR_PAIRS:
+                return None
+            curses.init_pair(pair, curses.COLOR_WHITE, index)
+            self.swatches[index] = pair
+        return curses.color_pair(self.swatches[index])
+
+    def handle_colors(self, k):
+        n = len(COLORS)
+        if k == "\x1b":
+            self.colors = None
+        elif k == "\t":  # type a name or #hex instead
+            self.colors = None
+            self.activate(manual=True)
+        elif k == curses.KEY_DOWN:
+            self.colors = (self.colors + 1) % n
+        elif k == curses.KEY_UP:
+            self.colors = (self.colors - 1) % n
+        elif k in ("\n", "\r", " ", curses.KEY_ENTER):
+            self.current_option().value = COLORS[self.colors][0]
+            self.colors = None
+            self.opt = min(self.opt + 1, len(self.script.visible()) - 1)
+
+    def draw_colors(self, x, y, bw, bh):
+        self.box(y, x, bh, bw, "Choose color", True)
+        for r in range(1, bh - 1):
+            self.put(y + r, x + 1, " " * (bw - 2))
+        info = "ImageMagick color names  ·  Tab: type a name or #hex"
+        self.put(y + 1, x + 2, info, curses.A_DIM, bw - 4)
+        avail = bh - 3
+        first = max(0, min(self.colors - avail // 2, len(COLORS) - avail))
+        for i, (name, hex_) in enumerate(COLORS[first : first + avail]):
+            row = y + 2 + i
+            focus = first + i == self.colors
+            if focus:
+                self.put(row, x + 2, "▶", self.col(C_ACCENT, curses.A_BOLD))
+            swatch = self.swatch(hex_)
+            if swatch is not None:
+                self.put(row, x + 4, "      ", swatch)
+            attr = curses.A_REVERSE | curses.A_BOLD if focus else 0
+            self.put(row, x + 11, f" {name:<12}", attr)
+            self.put(row, x + 25, hex_, curses.A_DIM)
 
     def handle_picker(self, k):
         p = self.picker
@@ -822,6 +955,9 @@ class App:
                 continue
             if self.picker is not None:
                 self.handle_picker(k)
+                continue
+            if self.colors is not None:
+                self.handle_colors(k)
                 continue
             if self.edit is not None:
                 self.handle_edit(k)

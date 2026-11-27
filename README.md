@@ -25,6 +25,8 @@ Keys: `↑/↓` move, `Tab`/`←→` switch between the list and the options, `E
 
 File and folder options open a browser: `Enter` opens a folder or picks a file, `←`/`Backspace` goes up, typing filters the list (start with `.` to see hidden files), `~` jumps home, `space` or "Use this folder" picks a folder, `Tab` lets you type the path by hand instead (with `Tab` completion).
 
+Color options (border color) open a color list with a preview of each color; `Tab` there lets you type any ImageMagick color name or a `#hex` value.
+
 Scripts run in the directory you start the UI from, so their default `./input_*` and `./output_*` folders end up there.
 
 ## Development
