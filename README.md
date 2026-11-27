@@ -27,6 +27,8 @@ File and folder options open a browser: `Enter` opens a folder or picks a file, 
 
 Color options (border color) open a color list with a preview of each color; `Tab` there lets you type any ImageMagick color name or a `#hex` value.
 
+Options with typical values (older than, border width, FPS, columns, sizes, JPG quality…) open a list of ready values; `Tab` there lets you type your own.
+
 Scripts run in the directory you start the UI from, so their default `./input_*` and `./output_*` folders end up there.
 
 ## Development
